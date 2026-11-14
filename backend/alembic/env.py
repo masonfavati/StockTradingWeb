@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, pool
 from alembic import context
 from app.core.config import Settings
 from app.db.base import Base
-from app.models import instrument, watchlist  # noqa: F401
+from app.models import historical_bar, instrument, watchlist  # noqa: F401
 
 config = context.config
 
