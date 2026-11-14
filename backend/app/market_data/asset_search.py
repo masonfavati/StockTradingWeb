@@ -93,7 +93,11 @@ class AlpacaAssetCatalog:
             )
         return rows
 
-    def search(self, query: str) -> list[SearchResult]:
+    def list_active(self) -> list[SearchResult]:
+        """Return Alpaca's full active US-equity directory, not the watchlist.
+
+        The existing search endpoint and scanner share one cached download.
+        """
         settings = Settings()
         key = settings.alpaca_api_key_id.strip()
         now = time.monotonic()
@@ -103,7 +107,10 @@ class AlpacaAssetCatalog:
                 self._rows = rows
                 self._loaded_key = key
                 self._expires_at = time.monotonic() + CATALOG_TTL_SECONDS
-            catalog = self._rows
+            return list(self._rows)
+
+    def search(self, query: str) -> list[SearchResult]:
+        catalog = self.list_active()
 
         term = query.strip().casefold()
         matches = [

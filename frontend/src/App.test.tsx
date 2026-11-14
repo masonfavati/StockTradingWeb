@@ -33,7 +33,7 @@ describe('Application shell', () => {
   it('shows unavailable features honestly', () => {
     renderApp()
 
-    fireEvent.click(screen.getByRole('link', { name: 'Market Scanner' }))
+    fireEvent.click(screen.getByRole('link', { name: 'Portfolio' }))
 
     expect(
       screen.getByText('Data feeds not connected'),
