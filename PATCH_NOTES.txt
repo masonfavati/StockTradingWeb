@@ -1,0 +1,38 @@
+StockTradingWeb — 3B.3 security-screen profiles patch
+
+Apply only to feature/universe-history AFTER the earlier 3B.3 universe,
+metadata, foreign-key, and VWAP patches. You already imported the first
+100 symbols using the original 'all' profile.
+
+New:
+  backend/app/market_data/security_profiles.py
+  backend/tests/test_security_profiles.py
+  docs/MILESTONE_3B3_SECURITY_SCREENS.md
+Replaces:
+  backend/app/market_data/universe_history.py
+
+No migration. No changes to the frontend, price records, credentials,
+or saved snapshots. The default --profile all preserves the original
+alphabetical offset order (so previous next offset 100 is still valid).
+
+From the repository root:
+  unzip -l ~/Downloads/StockTradingWeb_3B3_Security_Screens.zip
+  unzip -o ~/Downloads/StockTradingWeb_3B3_Security_Screens.zip -d ~/StockTradingWeb
+  cd ~/StockTradingWeb/backend
+  uv run pytest -q
+  uv run ruff check .
+  uv run mypy app
+  uv run alembic check
+
+Read-only profile report:
+  uv run python -m app.market_data.universe_history profiles --snapshot 2026-11-14
+
+Existing all-symbol sequence, next 50 only:
+  uv run python -m app.market_data.universe_history backfill --snapshot 2026-11-14 --profile all --start 2026-08-01 --offset 100 --limit 50 --batch-size 10
+
+Do not reuse an 'all' offset with a filtered profile: start at zero for
+any new profile. See docs/MILESTONE_3B3_SECURITY_SCREENS.md.
+
+Financial integrity: classification is a transparent NAME-BASED HEURISTIC;
+Alpaca's us_equity classification does not guarantee common stock.
+These lists are not validated historical market universes or buy advice.

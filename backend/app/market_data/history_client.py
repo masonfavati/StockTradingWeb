@@ -5,6 +5,7 @@ Nothing here is safe to treat as a real-time trading signal.
 """
 
 import json
+import logging
 import re
 import ssl
 import time
@@ -28,6 +29,7 @@ NY = ZoneInfo("America/New_York")
 HistoryFeed = Literal["sip", "iex"]
 HistoryAdjustment = Literal["raw", "split", "all"]
 _SYMBOL_PATTERN = re.compile(r"[A-Z][A-Z0-9.-]{0,19}\Z")
+logger = logging.getLogger(__name__)
 
 
 class HistoricalDataError(Exception):
@@ -83,6 +85,7 @@ def parse_daily_page(payload: object, expected_symbols: Sequence[str]) -> list[D
     bars = payload["bars"]
     expected = set(expected_symbols)
     parsed: list[DailyBar] = []
+    invalid_vwap_locations: list[str] = []
     for symbol, rows in bars.items():
         if not isinstance(symbol, str) or symbol not in expected or not isinstance(rows, list):
             raise HistoricalDataError("Unexpected symbol or list in provider response.")
@@ -98,8 +101,6 @@ def parse_daily_page(payload: object, expected_symbols: Sequence[str]) -> list[D
                 volume = _nonnegative_integer(row["v"], "volume")
                 n = row.get("n")
                 trade_count = None if n is None else _nonnegative_integer(n, "trade count")
-                vw = row.get("vw")
-                vwap = None if vw is None else _positive_decimal(vw, "VWAP")
             except (KeyError, TypeError, ValueError, OverflowError) as exc:
                 raise HistoricalDataError("Incomplete or invalid daily-bar record.") from exc
             if timestamp.tzinfo is None:
@@ -109,6 +110,18 @@ def parse_daily_page(payload: object, expected_symbols: Sequence[str]) -> list[D
                 and low_price <= close_price <= high_price
             ):
                 raise HistoricalDataError("Inconsistent OHLC prices in historical data.")
+            # VWAP is optional in our storage schema and is not used to derive
+            # OHLCV. An unusable vendor VWAP must never be replaced with an
+            # estimated price, nor should it discard otherwise sound OHLCV.
+            vw = row.get("vw")
+            vwap: Decimal | None = None
+            if vw is not None:
+                try:
+                    vwap = _positive_decimal(vw, "VWAP")
+                except HistoricalDataError:
+                    invalid_vwap_locations.append(
+                        f"{symbol} {timestamp.astimezone(NY).date()}"
+                    )
             parsed.append(DailyBar(
                 symbol=symbol,
                 session_date=timestamp.astimezone(NY).date(),
@@ -121,6 +134,15 @@ def parse_daily_page(payload: object, expected_symbols: Sequence[str]) -> list[D
                 trade_count=trade_count,
                 vwap=vwap,
             ))
+    if invalid_vwap_locations:
+        # One summary per page: identify affected records without echoing
+        # arbitrary provider values or overwhelming logs in a large backfill.
+        logger.warning(
+            "Alpaca supplied %d unusable VWAP value(s) in a historical page; "
+            "saved those VWAP fields as NULL (OHLCV retained). Examples: %s",
+            len(invalid_vwap_locations),
+            ", ".join(invalid_vwap_locations[:3]),
+        )
     return parsed
 
 
