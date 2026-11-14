@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend checks
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: stocktradingweb
+          POSTGRES_PASSWORD: local_development_only
+          POSTGRES_DB: stocktradingweb
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U stocktradingweb -d stocktradingweb"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+psycopg://stocktradingweb:local_development_only@127.0.0.1:5433/stocktradingweb
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          version: "0.12.19"
+
+      - name: Install dependencies
+        run: uv sync --locked --python 3.14
+
+      - name: Run tests
+        run: uv run pytest -v
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Type checking
+        run: uv run mypy app
+
+      - name: Apply migrations
+        run: uv run alembic upgrade head
+
+      - name: Check schema consistency
+        run: uv run alembic check
+
+  frontend:
+    name: Frontend checks
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: "10.28.0"
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests
+        run: pnpm exec vitest run
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Production build
+        run: pnpm run build

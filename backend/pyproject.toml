@@ -1,0 +1,35 @@
+[project]
+name = "stocktradingweb-backend"
+version = "0.1.0"
+description = "StockTradingWeb financial analysis backend"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.116,<1",
+    "uvicorn[standard]>=0.35,<1",
+    "sqlalchemy>=2.0,<3",
+    "alembic>=1.16,<2",
+    "pydantic-settings>=2.10,<3",
+    "psycopg[binary]>=3.2,<4",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4,<10",
+    "pytest-cov>=6,<8",
+    "ruff>=0.12,<1",
+    "mypy>=1.16,<2",
+    "httpx2>=2.16.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+plugins = ["pydantic.mypy"]
