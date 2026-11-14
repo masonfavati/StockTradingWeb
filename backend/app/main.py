@@ -5,33 +5,23 @@ from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI
 
 from app.api.market import router as market_router
+from app.api.watchlist import router as watchlist_router
+from app.api.watchlist_search import router as watchlist_search_router
 from app.core.config import Settings
+from app.market_data.hub import MarketHub
 from app.market_data.service import stream_market_data
-from app.market_data.state import MarketState
 
 
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     settings = Settings()
-    state = MarketState(
-        feed=settings.market_data_feed,
-        symbol=settings.market_data_symbol.upper(),
-    )
-
-    application.state.market_state = state
+    hub = MarketHub(feed=settings.market_data_feed)
+    hub.select_watchlist([])
+    application.state.market_hub = hub
     task: asyncio.Task[None] | None = None
 
     if settings.market_data_enabled:
-        if state.feed == "test" and state.symbol != "FAKEPACA":
-            state.connection_status = "configuration_error"
-            state.error = "Test feed requires FAKEPACA"
-        elif state.feed == "iex" and state.symbol == "FAKEPACA":
-            state.connection_status = "configuration_error"
-            state.error = "IEX feed requires a real stock symbol"
-        else:
-            task = asyncio.create_task(
-                stream_market_data(state, settings)
-            )
+        task = asyncio.create_task(stream_market_data(hub, settings))
 
     try:
         yield
@@ -50,6 +40,8 @@ app = FastAPI(
 )
 
 app.include_router(market_router)
+app.include_router(watchlist_router)
+app.include_router(watchlist_search_router)
 
 
 @app.get("/api/health", tags=["Health"])

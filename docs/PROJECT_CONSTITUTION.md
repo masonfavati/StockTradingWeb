@@ -68,3 +68,45 @@
 Changes to these governing rules require an explicit,
 documented decision. Unresolved product decisions must
 not be silently assumed.
+
+## 13. Beginner-first user experience
+
+StockTradingWeb is designed for a user with no prior
+knowledge of stocks, trading, or financial analysis.
+
+Its primary purpose is helping the user make informed
+investment decisions that may grow their wealth.
+
+Requirements:
+- Use plain English for all primary features.
+- Define financial terms wherever they first appear.
+- Center the interface on three questions:
+  1. What should I buy?
+  2. How are my investments doing?
+  3. Should I sell anything?
+- Present gains and losses primarily in dollars.
+- Explain recommendations and their underlying evidence.
+- Explain meaningful downside risks and uncertainty.
+- Do not require users to interpret technical indicators.
+- Never manufacture a recommendation when evidence
+  is insufficient.
+- Clearly distinguish actual, simulated, and forecast
+  financial results.
+- Never imply that a prediction guarantees a profit.
+- Make core workflows usable on desktop and mobile.
+
+The interface fails acceptance if a beginner cannot
+understand the recommendation, its risks, and what
+action it suggests without external research.
+
+## 14. Investment effectiveness
+
+- Evaluate whether recommendations would produce
+  positive net returns after realistic trading costs.
+- Compare results with appropriate simple benchmarks.
+- Evaluate performance across market conditions.
+- Track losses and maximum portfolio drawdown.
+- Do not advertise model accuracy as profitability.
+- Do not present unvalidated models as trustworthy.
+- No real-money trades without explicit user action.
+- Never sacrifice financial correctness for simpler UI.
