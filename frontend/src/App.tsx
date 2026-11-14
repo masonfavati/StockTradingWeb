@@ -1,11 +1,12 @@
 import { NavLink, Route, Routes } from 'react-router'
 import MarketPanel from './features/market/MarketPanel'
 import WatchlistPage from './features/watchlist/WatchlistPage'
+import ScannerPage from './features/scanner/ScannerPage'
 
 const navigation = [
   { path: '/', label: 'Dashboard' },
   { path: '/watchlist', label: "Stocks I'm Following" },
-  { path: '/scanner', label: 'Market Scanner' },
+  { path: '/scanner', label: 'Find Opportunities' },
   { path: '/portfolio', label: 'Portfolio' },
   { path: '/forecasts', label: 'Forecast Lab' },
 ]
@@ -74,8 +75,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/watchlist" element={<WatchlistPage />} />
-          <Route path="/scanner" element={<PlaceholderPage title="Market Scanner"
-            description="Compare investment opportunities across multiple holding periods." />} />
+          <Route path="/scanner" element={<ScannerPage />} />
           <Route path="/portfolio" element={<PlaceholderPage title="Portfolio"
             description="Track positions, transactions, gains, and portfolio risk." />} />
           <Route path="/forecasts" element={<PlaceholderPage title="Forecast Lab"

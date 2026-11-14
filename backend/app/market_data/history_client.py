@@ -184,6 +184,7 @@ class AlpacaHistoryClient:
         end: date | datetime,
         feed: HistoryFeed = "sip",
         adjustment: HistoryAdjustment = "raw",
+        page_limit: int = 1000,
     ) -> Iterator[list[DailyBar]]:
         """End is an explicit UTC cutoff, not a completed-session proof.
 
@@ -203,6 +204,8 @@ class AlpacaHistoryClient:
             raise ValueError("Unsupported historical feed.")
         if adjustment not in ("raw", "split", "all"):
             raise ValueError("Unsupported historical price adjustment.")
+        if not 1 <= page_limit <= 10000:
+            raise ValueError("Historical page limit must be between 1 and 10000.")
         params = {
             "symbols": ",".join(normalized),
             "timeframe": "1Day",
@@ -212,7 +215,7 @@ class AlpacaHistoryClient:
             "adjustment": adjustment,
             "asof": "-",  # Avoid silently relabelling historic ticker identities.
             "sort": "asc",
-            "limit": "1000",
+            "limit": str(page_limit),
         }
         seen_tokens: set[str] = set()
         while True:
