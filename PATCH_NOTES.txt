@@ -1,38 +1,34 @@
-StockTradingWeb — 3B.3 security-screen profiles patch
+StockTradingWeb — Milestone 3C.1 backtest readiness patch
 
-Apply only to feature/universe-history AFTER the earlier 3B.3 universe,
-metadata, foreign-key, and VWAP patches. You already imported the first
-100 symbols using the original 'all' profile.
+All five source/test/docs files are NEW. No existing application code, database migration, env,
+portfolio, historical prices, or README file is replaced.
 
-New:
-  backend/app/market_data/security_profiles.py
-  backend/tests/test_security_profiles.py
-  docs/MILESTONE_3B3_SECURITY_SCREENS.md
-Replaces:
-  backend/app/market_data/universe_history.py
+Files:
+ backend/app/analysis/backtest_readiness.py
+ backend/app/analysis/readiness_cli.py
+ backend/tests/test_backtest_readiness.py
+ backend/tests/test_readiness_storage.py
+ docs/MILESTONE_3C1_BACKTEST_READINESS.md
 
-No migration. No changes to the frontend, price records, credentials,
-or saved snapshots. The default --profile all preserves the original
-alphabetical offset order (so previous next offset 100 is still valid).
+Development branch:
+ cd ~/StockTradingWeb
+ git fetch origin
+ git switch -c feature/backtest-readiness origin/main
 
-From the repository root:
-  unzip -l ~/Downloads/StockTradingWeb_3B3_Security_Screens.zip
-  unzip -o ~/Downloads/StockTradingWeb_3B3_Security_Screens.zip -d ~/StockTradingWeb
-  cd ~/StockTradingWeb/backend
-  uv run pytest -q
-  uv run ruff check .
-  uv run mypy app
-  uv run alembic check
+Apply from Downloads:
+ unzip -l ~/Downloads/StockTradingWeb_3C1_Backtest_Readiness.zip
+ unzip -o ~/Downloads/StockTradingWeb_3C1_Backtest_Readiness.zip -d ~/StockTradingWeb
 
-Read-only profile report:
-  uv run python -m app.market_data.universe_history profiles --snapshot 2026-11-14
+Check from backend:
+ uv run pytest -q
+ uv run ruff check .
+ uv run mypy app
+ uv run alembic check
 
-Existing all-symbol sequence, next 50 only:
-  uv run python -m app.market_data.universe_history backfill --snapshot 2026-11-14 --profile all --start 2026-08-01 --offset 100 --limit 50 --batch-size 10
+Read-only audit (existing snapshot, finite sample):
+ uv run python -m app.analysis.readiness_cli --snapshot 2026-11-14 \
+   --profile common-name-evidence --start 2026-08-01 \
+   --end 2026-11-13 --offset 0 --limit 100 --horizon 20
 
-Do not reuse an 'all' offset with a filtered profile: start at zero for
-any new profile. See docs/MILESTONE_3B3_SECURITY_SCREENS.md.
-
-Financial integrity: classification is a transparent NAME-BASED HEURISTIC;
-Alpaca's us_equity classification does not guarantee common stock.
-These lists are not validated historical market universes or buy advice.
+Purpose: explicit exchange-calendar coverage and no-future-directory gate,
+NOT a market-wide backtest or evidence that current scanner rankings are profitable.

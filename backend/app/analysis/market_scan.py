@@ -4,6 +4,7 @@ All prices are completed-day, retrospective `all` adjusted SIP bars, NOT
 real-time consolidated quotes or a backtested investment model.
 """
 
+import logging
 import re
 from collections import defaultdict
 from collections.abc import Callable, Iterator, Sequence
@@ -19,6 +20,7 @@ from app.market_data.history_import import completed_session_cutoff
 
 NY = ZoneInfo("America/New_York")
 _VALID_SYMBOL = re.compile(r"[A-Z][A-Z0-9.-]{0,19}\Z")
+logger = logging.getLogger(__name__)
 BATCH_SIZE = 60
 LOOKBACK_CALENDAR_DAYS = 180
 
@@ -48,6 +50,9 @@ class ScanResults:
     qualified: int
     latest_session: str | None
     candidates: list[ResearchCandidate]
+    excluded_invalid_core_symbols: int = 0
+    invalid_core_records: int = 0
+    invalid_core_examples: tuple[str, ...] = ()
 
 
 def scan_market(
@@ -79,19 +84,45 @@ def scan_market(
     latest_allowed = now.astimezone(NY).date()
 
     candidates: list[ResearchCandidate] = []
+    invalid_symbols: set[str] = set()
+    invalid_records = 0
+    invalid_examples: list[str] = []
+
+    def on_invalid_core(symbol: str, session_date: date | None, reason: str) -> None:
+        nonlocal invalid_records
+        invalid_symbols.add(symbol)
+        invalid_records += 1
+        if len(invalid_examples) < 5:
+            invalid_examples.append(f"{symbol} {session_date or 'unknown-date'}: {reason}")
+
     processed = 0
     most_recent: str | None = None
     for index in range(0, len(symbols), BATCH_SIZE):
         batch = symbols[index : index + BATCH_SIZE]
         grouped: dict[str, list[DailyBar]] = defaultdict(list)
-        for page in history.pages(
-            batch,
-            start=start,
-            end=completed_before,
-            feed="sip",
-            adjustment="all",
-            page_limit=10000,
-        ):
+        # Our actual Alpaca client offers a scanner-only quarantine path.
+        # Test doubles and other providers retain the existing strict API.
+        screening_pages = getattr(history, "screening_pages", None)
+        if callable(screening_pages):
+            pages = screening_pages(
+                batch,
+                start=start,
+                end=completed_before,
+                feed="sip",
+                adjustment="all",
+                page_limit=10000,
+                on_invalid_core=on_invalid_core,
+            )
+        else:
+            pages = history.pages(
+                batch,
+                start=start,
+                end=completed_before,
+                feed="sip",
+                adjustment="all",
+                page_limit=10000,
+            )
+        for page in pages:
             for bar in page:
                 if bar.symbol not in valid:
                     raise ValueError("Unexpected symbol in historical market scan")
@@ -100,6 +131,10 @@ def scan_market(
                 grouped[bar.symbol].append(bar)
 
         for symbol in batch:
+            # One damaged core bar invalidates this symbol's entire screening
+            # history, even if other pages returned otherwise valid bars.
+            if symbol in invalid_symbols:
+                continue
             rows = grouped.get(symbol, [])
             item = describe_candidate(symbol, valid[symbol], rows)
             if item is not None:
@@ -118,6 +153,12 @@ def scan_market(
             item for item in candidates
             if (max_date - item.last_session).days <= 3
         ]
+    if invalid_symbols:
+        logger.warning(
+            "Market screening excluded %d symbol(s) with %d invalid core "
+            "OHLCV record(s). Examples: %s",
+            len(invalid_symbols), invalid_records, "; ".join(invalid_examples),
+        )
     return ScanResults(
         directory_size=len(assets),
         considered=len(symbols),
@@ -125,4 +166,7 @@ def scan_market(
         qualified=len(candidates),
         latest_session=most_recent,
         candidates=shortlist(candidates),
+        excluded_invalid_core_symbols=len(invalid_symbols),
+        invalid_core_records=invalid_records,
+        invalid_core_examples=tuple(invalid_examples),
     )

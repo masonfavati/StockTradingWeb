@@ -9,7 +9,7 @@ import logging
 import re
 import ssl
 import time
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from datetime import time as dt_time
@@ -28,6 +28,7 @@ HISTORY_URL = "https://data.alpaca.markets/v2/stocks/bars"
 NY = ZoneInfo("America/New_York")
 HistoryFeed = Literal["sip", "iex"]
 HistoryAdjustment = Literal["raw", "split", "all"]
+InvalidCoreHandler = Callable[[str, date | None, str], None]
 _SYMBOL_PATTERN = re.compile(r"[A-Z][A-Z0-9.-]{0,19}\Z")
 logger = logging.getLogger(__name__)
 
@@ -77,8 +78,19 @@ def _nonnegative_integer(value: object, field: str) -> int:
     return value
 
 
-def parse_daily_page(payload: object, expected_symbols: Sequence[str]) -> list[DailyBar]:
-    """Reject malformed rows rather than inventing or silently dropping prices."""
+def parse_daily_page(
+    payload: object,
+    expected_symbols: Sequence[str],
+    *,
+    on_invalid_core: InvalidCoreHandler | None = None,
+) -> list[DailyBar]:
+    """Parse vendor bars; reject damaged core OHLCV in strict mode.
+
+    Scanner-only tolerant mode reports a damaged core record to the caller and
+    drops that record. The caller MUST disqualify the ENTIRE affected symbol;
+    merely dropping an observation could create a misleading momentum history.
+    Unexpected symbols and structural provider-response failures always raise.
+    """
     if not isinstance(payload, dict) or not isinstance(payload.get("bars"), dict):
         raise HistoricalDataError("The provider returned an unexpected bars response.")
 
@@ -92,8 +104,12 @@ def parse_daily_page(payload: object, expected_symbols: Sequence[str]) -> list[D
         for row in rows:
             if not isinstance(row, dict):
                 raise HistoricalDataError("Invalid daily-bar record.")
+            session_date: date | None = None
             try:
                 timestamp = datetime.fromisoformat(row["t"])
+                if timestamp.tzinfo is None:
+                    raise HistoricalDataError("Historical bar timestamp lacks a time zone.")
+                session_date = timestamp.astimezone(NY).date()
                 open_price = _positive_decimal(row["o"], "open")
                 high_price = _positive_decimal(row["h"], "high")
                 low_price = _positive_decimal(row["l"], "low")
@@ -101,30 +117,33 @@ def parse_daily_page(payload: object, expected_symbols: Sequence[str]) -> list[D
                 volume = _nonnegative_integer(row["v"], "volume")
                 n = row.get("n")
                 trade_count = None if n is None else _nonnegative_integer(n, "trade count")
+                if not (
+                    low_price <= open_price <= high_price
+                    and low_price <= close_price <= high_price
+                ):
+                    raise HistoricalDataError("Inconsistent OHLC prices in historical data.")
             except (KeyError, TypeError, ValueError, OverflowError) as exc:
-                raise HistoricalDataError("Incomplete or invalid daily-bar record.") from exc
-            if timestamp.tzinfo is None:
-                raise HistoricalDataError("Historical bar timestamp lacks a time zone.")
-            if not (
-                low_price <= open_price <= high_price
-                and low_price <= close_price <= high_price
-            ):
-                raise HistoricalDataError("Inconsistent OHLC prices in historical data.")
-            # VWAP is optional in our storage schema and is not used to derive
-            # OHLCV. An unusable vendor VWAP must never be replaced with an
-            # estimated price, nor should it discard otherwise sound OHLCV.
+                if on_invalid_core is None:
+                    raise HistoricalDataError("Incomplete or invalid daily-bar record.") from exc
+                on_invalid_core(symbol, session_date, "Incomplete or invalid core bar")
+                continue
+            except HistoricalDataError as exc:
+                if on_invalid_core is None:
+                    raise
+                on_invalid_core(symbol, session_date, str(exc))
+                continue
+            assert session_date is not None
+            # VWAP is OPTIONAL. It cannot repair missing or invalid core OHLCV.
             vw = row.get("vw")
             vwap: Decimal | None = None
             if vw is not None:
                 try:
                     vwap = _positive_decimal(vw, "VWAP")
                 except HistoricalDataError:
-                    invalid_vwap_locations.append(
-                        f"{symbol} {timestamp.astimezone(NY).date()}"
-                    )
+                    invalid_vwap_locations.append(f"{symbol} {session_date}")
             parsed.append(DailyBar(
                 symbol=symbol,
-                session_date=timestamp.astimezone(NY).date(),
+                session_date=session_date,
                 bar_timestamp=timestamp,
                 open_price=open_price,
                 high_price=high_price,
@@ -135,8 +154,6 @@ def parse_daily_page(payload: object, expected_symbols: Sequence[str]) -> list[D
                 vwap=vwap,
             ))
     if invalid_vwap_locations:
-        # One summary per page: identify affected records without echoing
-        # arbitrary provider values or overwhelming logs in a large backfill.
         logger.warning(
             "Alpaca supplied %d unusable VWAP value(s) in a historical page; "
             "saved those VWAP fields as NULL (OHLCV retained). Examples: %s",
@@ -207,6 +224,7 @@ class AlpacaHistoryClient:
         feed: HistoryFeed = "sip",
         adjustment: HistoryAdjustment = "raw",
         page_limit: int = 1000,
+        on_invalid_core: InvalidCoreHandler | None = None,
     ) -> Iterator[list[DailyBar]]:
         """End is an explicit UTC cutoff, not a completed-session proof.
 
@@ -242,7 +260,7 @@ class AlpacaHistoryClient:
         seen_tokens: set[str] = set()
         while True:
             payload = self._get_page(params)
-            yield parse_daily_page(payload, normalized)
+            yield parse_daily_page(payload, normalized, on_invalid_core=on_invalid_core)
             token = payload.get("next_page_token")
             if token is None or token == "":
                 return
@@ -250,3 +268,29 @@ class AlpacaHistoryClient:
                 raise HistoricalDataError("Repeated or invalid pagination token.")
             seen_tokens.add(token)
             params["page_token"] = token
+
+    def screening_pages(
+        self,
+        symbols: Sequence[str],
+        *,
+        start: date,
+        end: date | datetime,
+        feed: HistoryFeed,
+        adjustment: HistoryAdjustment,
+        page_limit: int,
+        on_invalid_core: InvalidCoreHandler,
+    ) -> Iterator[list[DailyBar]]:
+        """Scanner-only: report malformed core bars so their symbols are excluded.
+
+        Ordinary backfills continue using strict pages(), which fail rather
+        than silently changing the historical dataset.
+        """
+        yield from self.pages(
+            symbols,
+            start=start,
+            end=end,
+            feed=feed,
+            adjustment=adjustment,
+            page_limit=page_limit,
+            on_invalid_core=on_invalid_core,
+        )

@@ -125,6 +125,8 @@ class ScanManager:
             ]
             self._message = (
                 "Completed-day research shortlist only. "
+                f"Excluded {result.excluded_invalid_core_symbols:,} symbol(s) "
+                "with invalid core price records. "
                 "Not a validated prediction or a recommendation to buy."
             )
 
