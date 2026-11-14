@@ -23,17 +23,17 @@ describe('Application shell', () => {
   it('navigates to the portfolio', () => {
     renderApp()
 
-    fireEvent.click(
-      screen.getByRole('link', { name: 'Portfolio' }),
-    )
+    fireEvent.click(screen.getByRole('link', { name: 'Portfolio' }))
 
     expect(
       screen.getByRole('heading', { name: 'Portfolio' }),
     ).toBeInTheDocument()
   })
 
-  it('discloses that financial data is not connected', () => {
+  it('shows unavailable features honestly', () => {
     renderApp()
+
+    fireEvent.click(screen.getByRole('link', { name: 'Market Scanner' }))
 
     expect(
       screen.getByText('Data feeds not connected'),
