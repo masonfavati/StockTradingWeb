@@ -10,6 +10,8 @@ dependencies = [
     "alembic>=1.16,<2",
     "pydantic-settings>=2.10,<3",
     "psycopg[binary]>=3.2,<4",
+    "websockets>=16,<18",
+    "certifi>=2026.10.23",
 ]
 
 [dependency-groups]

@@ -1,4 +1,5 @@
 import { NavLink, Route, Routes } from 'react-router'
+import MarketPanel from './features/market/MarketPanel'
 
 const navigation = [
   { path: '/', label: 'Dashboard' },
@@ -18,26 +19,32 @@ function PlaceholderPage({ title, description }: PageProps) {
       <p className="mb-3 text-sm font-medium text-emerald-400">
         Initial development
       </p>
-
-      <h1 className="text-3xl font-bold text-white">
-        {title}
-      </h1>
-
-      <p className="mt-4 max-w-2xl text-slate-400">
-        {description}
-      </p>
-
+      <h1 className="text-3xl font-bold text-white">{title}</h1>
+      <p className="mt-4 max-w-2xl text-slate-400">{description}</p>
       <div className="mt-8 rounded-xl border border-slate-700 bg-slate-950 p-5">
         <p className="font-medium text-white">
           Data feeds not connected
         </p>
-
         <p className="mt-2 text-sm text-slate-400">
-          Live prices, portfolio data, and model recommendations
-          will appear once their backend integrations are ready.
+          This feature is not yet connected to the backend.
         </p>
       </div>
     </section>
+  )
+}
+
+function DashboardPage() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <p className="mt-2 text-slate-400">
+          Monitor incoming market data and its reliability.
+        </p>
+      </div>
+
+      <MarketPanel />
+    </div>
   )
 }
 
@@ -47,10 +54,8 @@ export default function App() {
       <header className="border-b border-slate-800 bg-slate-900">
         <div className="mx-auto max-w-7xl px-6 py-6">
           <p className="text-2xl font-bold tracking-tight">
-            <span className="text-emerald-400">Stock</span>
-            TradingWeb
+            <span className="text-emerald-400">Stock</span>TradingWeb
           </p>
-
           <p className="mt-1 text-sm text-slate-400">
             Evidence-driven investment analysis
           </p>
@@ -83,25 +88,14 @@ export default function App() {
 
       <main className="mx-auto max-w-7xl px-6 py-10">
         <Routes>
-          <Route
-            path="/"
-            element={
-              <PlaceholderPage
-                title="Dashboard"
-                description="Your investing overview, model performance,
-                  portfolio health, and highest-ranked opportunities."
-              />
-            }
-          />
+          <Route path="/" element={<DashboardPage />} />
 
           <Route
             path="/scanner"
             element={
               <PlaceholderPage
                 title="Market Scanner"
-                description="Explore stocks ranked by expected
-                  risk-adjusted profitability across multiple
-                  investment horizons."
+                description="Compare investment opportunities across multiple holding periods."
               />
             }
           />
@@ -111,8 +105,7 @@ export default function App() {
             element={
               <PlaceholderPage
                 title="Portfolio"
-                description="Track purchases, sales, holdings,
-                  realized gains, unrealized gains, and portfolio risk."
+                description="Track positions, transactions, gains, and portfolio risk."
               />
             }
           />
@@ -122,9 +115,7 @@ export default function App() {
             element={
               <PlaceholderPage
                 title="Forecast Lab"
-                description="Compare statistical models, inspect
-                  predicted return distributions, and evaluate
-                  out-of-sample performance."
+                description="Evaluate statistical predictions and out-of-sample performance."
               />
             }
           />
@@ -142,8 +133,8 @@ export default function App() {
       </main>
 
       <footer className="mx-auto max-w-7xl px-6 pb-8 text-xs text-slate-500">
-        Research software in development.
-        No investment recommendations are currently available.
+        Research software in development. No investment recommendations
+        are currently available.
       </footer>
     </div>
   )
