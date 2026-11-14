@@ -1,25 +1,13 @@
-StockTradingWeb — Milestone 3C.2 malformed-opening-price hotfix
+Milestone 3D.2 — journal static checks hotfix
 
-Apply only while on feature/backtest-readiness, after the 3C.2 forward-checkpoint patch.
+Changes limited to 2 source files:
+- backend/app/analysis/forward_journal.py: remove unused CalendarError import; avoid reusing `entry` for a date and JournalEntry in capture.
+- backend/app/analysis/forward_journal_cli.py: avoid reusing `item` as both JournalEntry and optional JournalEntry across register/capture branches.
 
-This archive replaces:
-  backend/app/market_data/history_client.py
-  backend/app/analysis/market_scan.py
-  backend/app/analysis/forward_record.py
-  backend/app/analysis/forward_cli.py
-  backend/app/api/scanner.py
-and adds:
-  backend/tests/test_scanner_invalid_core_quarantine.py
-  docs/MILESTONE_3C2_INVALID_CORE_HOTFIX.md
+No business logic, migration, database, or research records modified.
 
-No database changes, no credentials, no saved market data, and no generated JSON research records are modified.
-
-Before applying, check your branch and archive contents:
-  git branch --show-current
-  unzip -l ~/Downloads/StockTradingWeb_3C2_Core_Bar_Quarantine_Hotfix.zip
-
-Apply from repository root:
-  unzip -o ~/Downloads/StockTradingWeb_3C2_Core_Bar_Quarantine_Hotfix.zip -d ~/StockTradingWeb
+Apply from repo root:
+  unzip -o ~/Downloads/StockTradingWeb_3D2_Journal_Typing_Hotfix.zip -d ~/StockTradingWeb
 
 Verify from backend:
   uv run pytest -q
@@ -27,4 +15,5 @@ Verify from backend:
   uv run mypy app
   uv run alembic check
 
-Then retry the forward scan with a new, unique research-record filename.
+Next test:
+  uv run python -m app.analysis.forward_journal_cli register --dir ~/StockTradingWebResearch --record ~/StockTradingWebResearch/forward_20261114_175735.json --expect-checksum 8704c43bc212175139e03a8296f322fbca0391d5214564e1060be1580c92948e

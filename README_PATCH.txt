@@ -1,30 +1,23 @@
-StockTradingWeb Milestone 3D.1 — frozen prospective outcome evaluation
+STOCKTRADINGWEB — MILESTONE 3D.2: FORWARD RESEARCH JOURNAL
+===========================================================
+APPLY ON: feature/forward-research-journal from freshly merged origin/main
+FILES: 5 new files (2 Python application, 1 test, 1 docs, 1 README)
+MIGRATIONS: none
+EXISTING FILES MODIFIED: none
 
-This patch ADDS ONLY the following files:
-- backend/app/analysis/forward_evaluation.py
-- backend/app/analysis/evaluate_forward_cli.py
-- backend/tests/test_forward_evaluation.py
-- docs/MILESTONE_3D1_FORWARD_OUTCOME.md
+New commands:
+  uv run python -m app.analysis.forward_journal_cli register --help
+  uv run python -m app.analysis.forward_journal_cli capture --help
+  uv run python -m app.analysis.forward_journal_cli status --help
 
-It does not modify existing source files, migrations, API credentials, the
-recorded prospective checkpoint, or the user's database.
+Read docs/MILESTONE_3D2_FORWARD_JOURNAL.md for exact steps to pin your
+existing November 14 record, check PENDING status and try duplicate-safe capture.
 
-Create branch from the merged main:
-  cd ~/StockTradingWeb
-  git fetch origin
-  git switch -c feature/forward-outcome-evaluation origin/main
+macOS/Linux only for the local fcntl advisory lock in this milestone.
+Manual invocation only: installing a recurring scheduler is a separate step.
+No background process, stock orders, forecasts, or performance claims.
 
-Unzip after downloading:
-  unzip -l ~/Downloads/StockTradingWeb_3D1_Forward_Outcome.zip
-  unzip -o ~/Downloads/StockTradingWeb_3D1_Forward_Outcome.zip -d ~/StockTradingWeb
-
-Then check:
-  cd ~/StockTradingWeb/backend
-  uv run pytest -q
-  uv run ruff check .
-  uv run mypy app
-  uv run alembic check
-
-See docs/MILESTONE_3D1_FORWARD_OUTCOME.md for the status-only audit command,
-and the later outcome evaluation command. The saved 3C.2 JSON stays outside
-Git and is never changed by the evaluator.
+Validations in reconstructed local harness: 23 new tests passed and
+183 tests in available reconstructed project passed. The full 236-test
+merged repository, Ruff, mypy, and PostgreSQL Alembic checks must be run
+by the user locally after applying the patch.
