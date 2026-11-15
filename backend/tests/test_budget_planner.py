@@ -14,6 +14,9 @@ def candidate(symbol: str, name: str, price: float = 20) -> dict[str, object]:
     return {
         "symbol": symbol, "name": name, "adjusted_close": price,
         "last_session": "2026-11-13",
+        "annualized_volatility_pct": 35.0,
+        "drawdown_60d_pct": -8.0,
+        "approx_daily_dollar_volume": 12_000_000.0,
     }
 
 

@@ -113,4 +113,42 @@ describe('BudgetPlannerPage', () => {
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
     expect(JSON.parse(init.body as string).allow_experimental_stocks).toBe(true)
   })
+
+  it('shows explicit historical quality rules and exclusions when experimental analysis runs', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({
+      ...sample,
+      experimental_opt_in: true,
+      quality_review: {
+        version: 'descriptive-quality-screen-v1', applied: true,
+        screened_count: 3, selected_count: 1,
+        excluded_counts: { below_liquidity_screen: 2 },
+        thresholds: {
+          min_adjusted_close_usd: 5,
+          min_approx_daily_dollar_volume_usd: 5_000_000,
+          max_annualized_volatility_pct: 80,
+          min_60d_drawdown_pct: -25,
+          max_individual_stocks: 2,
+        },
+        caveat: 'No correlation model or verified company identity.',
+      },
+    }) })
+    render(<MemoryRouter><BudgetPlannerPage /></MemoryRouter>)
+    fireEvent.click(screen.getByRole('checkbox'))
+    fireEvent.click(screen.getByRole('button', { name: 'Show budget example' }))
+    await waitFor(() => expect(screen.getByText('Individual-stock research quality checks')).toBeTruthy())
+    expect(screen.getByText(/Reviewed 3 ranked shortlist candidates/)).toBeTruthy()
+    expect(screen.getByText(/Below approximate historical trading-volume threshold: 2/)).toBeTruthy()
+    expect(screen.getByText('No correlation model or verified company identity.')).toBeTruthy()
+  })
+
+  it('explains why experimental screening was not applied instead of inventing candidates', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({
+      ...sample, experimental_opt_in: true,
+      quality_review: { applied: false },
+    }) })
+    render(<MemoryRouter><BudgetPlannerPage /></MemoryRouter>)
+    fireEvent.click(screen.getByRole('checkbox'))
+    fireEvent.click(screen.getByRole('button', { name: 'Show budget example' }))
+    await waitFor(() => expect(screen.getByText(/No quality screening was applied/)).toBeTruthy())
+  })
 })

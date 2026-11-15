@@ -91,6 +91,9 @@ def test_opt_in_uses_registered_checkpoint_when_browser_has_no_scan() -> None:
             "candidates": [{
                 "symbol": "AAA", "name": "AAA Corporation Common Stock",
                 "adjusted_close": 20.0, "last_session": signal,
+                "annualized_volatility_pct": 35.0,
+                "drawdown_60d_pct": -8.0,
+                "approx_daily_dollar_volume": 12_000_000.0,
             }],
         })
         response = make_app().post("/api/research/budget-plan", json={

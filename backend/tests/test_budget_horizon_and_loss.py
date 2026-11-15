@@ -16,10 +16,16 @@ IDEAS: list[dict[str, object]] = [
     {
         "symbol": "AAA", "name": "AAA Example Common Stock", "adjusted_close": 20,
         "last_session": "2026-11-13",
+        "annualized_volatility_pct": 35.0,
+        "drawdown_60d_pct": -8.0,
+        "approx_daily_dollar_volume": 12_000_000.0,
     },
     {
         "symbol": "BBB", "name": "BBB Example Ordinary Shares", "adjusted_close": 40,
         "last_session": "2026-11-13",
+        "annualized_volatility_pct": 35.0,
+        "drawdown_60d_pct": -8.0,
+        "approx_daily_dollar_volume": 12_000_000.0,
     },
 ]
 
