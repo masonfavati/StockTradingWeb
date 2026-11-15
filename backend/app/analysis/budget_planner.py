@@ -79,6 +79,8 @@ def make_budget_plan(
     candidates: Sequence[Mapping[str, Any]],
     require_historical_comovement: bool = False,
     comovement_review: Mapping[str, Any] | None = None,
+    require_sec_identity: bool = False,
+    sec_identity_review: Mapping[str, Any] | None = None,
     now: datetime | None = None,
 ) -> dict[str, Any]:
     """Return illustrative dollar slices, with remaining pennies assigned to cash."""
@@ -92,6 +94,8 @@ def make_budget_plan(
         raise BudgetPlanError("Experimental opt-in must be a boolean")
     if type(require_historical_comovement) is not bool:
         raise BudgetPlanError("Co-movement opt-in must be a boolean")
+    if type(require_sec_identity) is not bool:
+        raise BudgetPlanError("SEC identity opt-in must be a boolean")
     current = now or datetime.now(UTC)
     if current.utcoffset() is None:
         raise BudgetPlanError("Current time must be timezone-aware")
@@ -127,6 +131,18 @@ def make_budget_plan(
         candidates if checked else [], scan_latest_session if checked else None,
     )
     quality_review["applied"] = checked
+    if require_sec_identity and allow_experimental_stocks:
+        # An absent/malformed SEC reference cannot authorize experimental stock
+        # dollars. The original two-stock allocation slots remain reserved.
+        approved_sec: set[str] = set()
+        if sec_identity_review is not None and sec_identity_review.get("status") == "checked":
+            verified = sec_identity_review.get("approved_symbols")
+            if isinstance(verified, list) and all(isinstance(s, str) for s in verified):
+                approved_sec = set(verified)
+        before = len(choices)
+        choices = [row for row in choices if row["symbol"] in approved_sec]
+        quality_review["selected_count"] = len(choices)
+        quality_review["sec_gated_count"] = before - len(choices)
     if require_historical_comovement and allow_experimental_stocks:
         # Only *server-supplied* aligned evidence may authorize stock dollars.
         # If the comparison cannot be performed, all experimental dollars stay cash.
@@ -157,10 +173,14 @@ def make_budget_plan(
         # An evidence-rejected stock's slice stays as cash. Never increase the
         # survivors' weights after the historical portfolio review was computed.
         denominator = len(choices)
+        if require_sec_identity and sec_identity_review is not None:
+            proposed = sec_identity_review.get("requested_symbols")
+            if isinstance(proposed, list) and 1 <= len(proposed) <= 2:
+                denominator = max(denominator, len(proposed))
         if require_historical_comovement and comovement_review is not None:
             requested = comovement_review.get("requested_symbols")
             if isinstance(requested, list) and 1 <= len(requested) <= 2:
-                denominator = len(requested)
+                denominator = max(denominator, len(requested))
         per_stock = min(per_stock_limit, satellite_cents // denominator)
         for candidate in choices:
             if per_stock < 1:
@@ -260,6 +280,8 @@ def make_budget_plan(
         "quality_review": quality_review,
         "historical_comovement_required": require_historical_comovement and allow_experimental_stocks,
         "comovement_review": dict(comovement_review) if require_historical_comovement and comovement_review is not None else None,
+        "sec_identity_required": require_sec_identity and allow_experimental_stocks,
+        "sec_identity_review": dict(sec_identity_review) if require_sec_identity and allow_experimental_stocks and sec_identity_review is not None else None,
         "scan_usable_for_ideas": recent,
         "source_session": scan_latest_session if recent else None,
         "allocation": allocations,
@@ -269,7 +291,7 @@ def make_budget_plan(
         "warnings": [
             "This is a budget scenario, not advice about what you personally should buy.",
             "SPY is an example diversified ETF, not a price-checked or personalized recommendation.",
-            "Individual stock ideas use name-only and historical quality screens, not verified security classes, issuer identities or validated return forecasts.",
+            "Individual stock ideas use name-only and historical quality screens. Optional SEC matches identify filers, NOT verified security classes or validated return forecasts.",
             "Ticker and issuer-name checks do not prove industry diversification or legally verified security identity.",
             "Historical correlations can change rapidly; they are not predictions or an independent safety guarantee.",
             "Fractional shares use past adjusted closes, NOT executable quotes. Actual shares, orders, fees and fractional-trading support may differ.",
