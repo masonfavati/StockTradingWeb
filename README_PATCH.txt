@@ -1,23 +1,14 @@
-STOCKTRADINGWEB — MILESTONE 3D.2: FORWARD RESEARCH JOURNAL
-===========================================================
-APPLY ON: feature/forward-research-journal from freshly merged origin/main
-FILES: 5 new files (2 Python application, 1 test, 1 docs, 1 README)
-MIGRATIONS: none
-EXISTING FILES MODIFIED: none
+StockTradingWeb Milestone 3D.3 — optional macOS forward-research scheduling
 
-New commands:
-  uv run python -m app.analysis.forward_journal_cli register --help
-  uv run python -m app.analysis.forward_journal_cli capture --help
-  uv run python -m app.analysis.forward_journal_cli status --help
+Files added or updated:
+  backend/app/analysis/forward_evaluation.py  (updated timing rules)
+  backend/app/analysis/forward_journal.py     (updated timing rules)
+  backend/app/analysis/forward_schedule.py
+  backend/app/analysis/forward_schedule_cli.py
+  backend/tests/test_forward_schedule.py
+  docs/MILESTONE_3D3_SCHEDULED_RESEARCH.md
 
-Read docs/MILESTONE_3D2_FORWARD_JOURNAL.md for exact steps to pin your
-existing November 14 record, check PENDING status and try duplicate-safe capture.
-
-macOS/Linux only for the local fcntl advisory lock in this milestone.
-Manual invocation only: installing a recurring scheduler is a separate step.
-No background process, stock orders, forecasts, or performance claims.
-
-Validations in reconstructed local harness: 23 new tests passed and
-183 tests in available reconstructed project passed. The full 236-test
-merged repository, Ruff, mypy, and PostgreSQL Alembic checks must be run
-by the user locally after applying the patch.
+Updates two existing modules; no migration, no credentials or automatic installation.
+Important: both capture and outcome evaluation now recognize strictly-before-09:00 NY
+entry-date records. The regular exchange opens at 09:30; not a guaranteed fill.
+See docs/MILESTONE_3D3_SCHEDULED_RESEARCH.md for activation and safety notes.
