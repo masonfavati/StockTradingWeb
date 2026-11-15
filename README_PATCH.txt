@@ -1,25 +1,27 @@
-StockTradingWeb 3D.4 — Bounded Prospective Outcome Journal
+StockTradingWeb — Milestone 3D.5 Cumulative Forward Performance
+==============================================================
+Apply to the current Git main branch AFTER 3D.4 has been merged.
 
-Additive patch, no migration and no changes to the installed LaunchAgent.
-Files:
-  backend/app/analysis/forward_outcomes.py
-  backend/app/analysis/forward_outcomes_cli.py
-  backend/tests/test_forward_outcomes.py
-  docs/MILESTONE_3D4_OUTCOMES.md
+Contents
+  backend/app/analysis/forward_performance.py          NEW
+  backend/app/analysis/forward_performance_cli.py      NEW
+  backend/app/analysis/forward_outcomes.py             SMALL ROUNDING FIX (replaces 3D.4 file)
+  backend/tests/test_forward_performance.py            NEW
+  docs/MILESTONE_3D5_CUMULATIVE_PERFORMANCE.md         NEW
 
-Create a fresh branch from merged main, unzip into repository, then check:
+No database migration, no scheduler install, no source checkpoint mutation.
+
+After unzipping into repository root:
   cd backend
   uv run pytest -q
   uv run ruff check .
   uv run mypy app
   uv run alembic check
+  uv run python -m app.analysis.forward_performance_cli --dir ~/StockTradingWebResearch
 
-Read-only integration test (may query Alpaca exchange calendar, NOT price bars):
-  uv run python -m app.analysis.forward_outcomes_cli status --dir ~/StockTradingWebResearch
+Optional machine JSON stdout:
+  uv run python -m app.analysis.forward_performance_cli --dir ~/StockTradingWebResearch --json
 
-Only after a registered checkpoint matures and after inspecting its frozen
-identity, explicitly process at most one:
-  uv run python -m app.analysis.forward_outcomes_cli evaluate-ready \
-    --dir ~/StockTradingWebResearch --limit 1
-
-No automatic scheduling is installed by this patch; no stock orders are placed.
+The report is read-only (aside from possible calendar calls); it will not
+request outcome PRICE bars or create portfolio return data while pending.
+A single completed forward selection is NOT a validated profitable strategy.

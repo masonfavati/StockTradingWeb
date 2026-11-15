@@ -150,7 +150,12 @@ def _read_existing(path: Path, entry: JournalEntry) -> dict[str, Any]:
             raise OutcomeJournalError(f"Outcome portfolio returns must be numerical: {path}") from exc
         if not all(value.is_finite() for value in (selected_value, benchmark_value, excess_value)):
             raise OutcomeJournalError(f"Outcome portfolio returns must be finite: {path}")
-        if selected_value - benchmark_value != excess_value:
+        # The evaluator rounds both the equal-weight average and paired
+        # excess independently to 0.0001 percentage points. In a tie, their
+        # displayed difference can be ONE last-place unit apart. Reject
+        # anything larger; the cumulative report separately recalculates
+        # the exact fields from every selected stock's recorded openings.
+        if abs(selected_value - benchmark_value - excess_value) > Decimal("0.0001"):
             raise OutcomeJournalError(f"Outcome excess return is inconsistent: {path}")
     elif body.get("complete_portfolio_comparison") is not None:
         raise OutcomeJournalError(f"Incomplete outcome must not claim portfolio returns: {path}")
