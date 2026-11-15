@@ -131,11 +131,11 @@ def test_capture_skips_previously_registered_signal_before_full_scan(tmp_path, m
     assert entry is not None and entry.expected_sha256 == digest
 
 
-def test_capture_refuses_entry_day_even_before_open(tmp_path, monkeypatch):
+def test_capture_refuses_entry_day_at_or_after_nine_ny(tmp_path, monkeypatch):
     monkeypatch.setattr(journal, "get_market_calendar", _calendar)
     monkeypatch.setattr(journal.subprocess, "run", lambda *_a, **_k: pytest.fail("scan ran"))
     state, entry = journal.capture(
-        tmp_path, now=datetime(2026, 11, 16, 13, tzinfo=UTC), settings=object(),
+        tmp_path, now=datetime(2026, 11, 16, 14, tzinfo=UTC), settings=object(),
     )
     assert state == "skipped_late"
     assert entry is None
@@ -161,6 +161,24 @@ def test_capture_one_scan_then_register_and_skip_second(tmp_path, monkeypatch):
     assert again == "already_registered"
     assert len(calls) == 1
     assert len(journal.entries(tmp_path)) == 1
+
+
+def test_entry_date_preopen_capture_can_register(tmp_path, monkeypatch):
+    monkeypatch.setattr(journal, "get_market_calendar", _calendar)
+    started = datetime(2026, 11, 16, 13, 15, tzinfo=UTC)
+
+    def scan(command, **_kwargs):
+        target = Path(command[command.index("--out") + 1])
+        body = _body()
+        body["recorded_at_utc"] = "2026-11-16T13:30:00+00:00"
+        write_forward_record(target, body)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(journal.subprocess, "run", scan)
+    state, entry = journal.capture(tmp_path, now=started, settings=object())
+    assert state == "captured"
+    assert entry is not None
+    assert entry.checkpoint.signal_session == SIGNAL
 
 
 def test_failed_full_scan_creates_no_pin(tmp_path, monkeypatch):
@@ -257,13 +275,13 @@ def test_capture_rejects_invalid_horizon_before_any_provider_request(tmp_path):
         journal.capture(tmp_path, horizon=0)
 
 
-def test_completed_scan_crossing_into_entry_day_does_not_register(tmp_path, monkeypatch):
+def test_completed_scan_reaching_nine_am_entry_day_does_not_register(tmp_path, monkeypatch):
     monkeypatch.setattr(journal, "get_market_calendar", _calendar)
 
     def after_midnight(command, **_kwargs):
         target = Path(command[command.index("--out") + 1])
         body = _body()
-        body["recorded_at_utc"] = "2026-11-16T06:00:00+00:00"
+        body["recorded_at_utc"] = "2026-11-16T14:00:00+00:00"
         write_forward_record(target, body)
         return SimpleNamespace(returncode=0)
 

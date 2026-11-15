@@ -175,6 +175,36 @@ def test_future_calendar_dates_are_rejected(tmp_path):
         evaluation_window(cp, sessions=sessions, completed_through=future[18])
 
 
+def test_early_entry_date_record_is_valid_before_nine_ny(tmp_path):
+    cp = _checkpoint(tmp_path)
+    sessions, future = _calendar(21)
+    cp = type(cp)(
+        content_sha256=cp.content_sha256,
+        recorded_at_utc=datetime(2026, 11, 16, 13, 59, tzinfo=UTC),
+        signal_session=cp.signal_session,
+        horizon=cp.horizon,
+        shortlist=cp.shortlist,
+        research_rule=cp.research_rule,
+    )
+    window = evaluation_window(cp, sessions=sessions, completed_through=future[-1])
+    assert window.entry_session == date(2026, 11, 16)
+
+
+def test_nine_am_ny_exactly_is_too_late(tmp_path):
+    cp = _checkpoint(tmp_path)
+    sessions, future = _calendar(21)
+    cp = type(cp)(
+        content_sha256=cp.content_sha256,
+        recorded_at_utc=datetime(2026, 11, 16, 14, tzinfo=UTC),
+        signal_session=cp.signal_session,
+        horizon=cp.horizon,
+        shortlist=cp.shortlist,
+        research_rule=cp.research_rule,
+    )
+    with pytest.raises(ForwardEvaluationError, match="09:00 NY"):
+        evaluation_window(cp, sessions=sessions, completed_through=future[-1])
+
+
 def test_record_created_on_entry_day_rejected(tmp_path):
     cp = _checkpoint(tmp_path)
     sessions, future = _calendar(21)
@@ -186,7 +216,7 @@ def test_record_created_on_entry_day_rejected(tmp_path):
         shortlist=cp.shortlist,
         research_rule=cp.research_rule,
     )
-    with pytest.raises(ForwardEvaluationError, match="before the proposed"):
+    with pytest.raises(ForwardEvaluationError, match="09:00 NY"):
         evaluation_window(cp, sessions=sessions, completed_through=future[-1])
 
 

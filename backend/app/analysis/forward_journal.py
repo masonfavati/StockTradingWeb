@@ -22,6 +22,7 @@ from zoneinfo import ZoneInfo
 from app.analysis.forward_evaluation import (
     ForwardEvaluationError,
     FrozenCheckpoint,
+    before_entry_open,
     evaluation_window,
     load_checkpoint,
 )
@@ -245,9 +246,9 @@ def capture(
         if not future:
             raise JournalError("Next exchange session could not be verified")
         entry_session = future[0]
-        # Current outcome evaluator conservatively requires a PRIOR calendar
-        # date, not merely a clock time before the next session's open.
-        if current.astimezone(NY).date() >= entry_session:
+        # Same-entry-date scans are eligible only if the whole run can
+        # finish by the evaluator's stricter 09:00 New York cutoff.
+        if not before_entry_open(current, entry_session):
             return "skipped_late", None
         key = (signal, horizon, SCANNER_RULE_ID)
         if key in existing:
@@ -283,7 +284,7 @@ def capture(
             or checkpoint.horizon != horizon
             or checkpoint.research_rule != SCANNER_RULE_ID
             or checkpoint.recorded_at_utc < current
-            or checkpoint.recorded_at_utc.astimezone(NY).date() >= entry_session
+            or not before_entry_open(checkpoint.recorded_at_utc, entry_session)
         ):
             raise JournalError(
                 "Scanner output does not match the preflight signal/rule/horizon; "

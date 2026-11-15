@@ -11,6 +11,7 @@ from collections.abc import Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
+from datetime import time as dt_time
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -137,6 +138,23 @@ def load_checkpoint(path: Path, *, expected_checksum: str) -> FrozenCheckpoint:
     )
 
 
+def before_entry_open(recorded_at: datetime, entry_session: date) -> bool:
+    """Conservative prospective timing rule shared by capture and evaluator.
+
+    A checkpoint may be recorded on the entry date ONLY if the whole
+    scan finishes strictly before 09:00 New York time, at least 30 minutes
+    ahead of the US equities' regular 09:30 open. Earlier dates remain valid.
+    The calendar verifies the session DATE; we intentionally enforce a
+    stricter fixed pre-open cutoff rather than assuming a fill at 09:30.
+    """
+    if recorded_at.tzinfo is None or recorded_at.utcoffset() is None:
+        raise ForwardEvaluationError("Recording timestamp must include a time zone")
+    ny = recorded_at.astimezone(NY)
+    return ny.date() < entry_session or (
+        ny.date() == entry_session and ny.time() < dt_time(9)
+    )
+
+
 def evaluation_window(
     checkpoint: FrozenCheckpoint,
     *,
@@ -153,10 +171,10 @@ def evaluation_window(
         raise ForwardEvaluationError("Calendar includes sessions after the completed-day cutoff")
     future = sorted(day for day in sessions if day > checkpoint.signal_session)
     entry = future[0] if future else None
-    if entry is not None and checkpoint.recorded_at_utc.astimezone(NY).date() >= entry:
+    if entry is not None and not before_entry_open(checkpoint.recorded_at_utc, entry):
         raise ForwardEvaluationError(
-            "Checkpoint was not recorded before the proposed next-session open; "
-            "entry cannot be reconstructed safely"
+            "Checkpoint was not recorded before the conservative 09:00 NY "
+            "next-session entry deadline; entry cannot be reconstructed safely"
         )
     required = checkpoint.horizon + 1
     exit_session = future[checkpoint.horizon] if len(future) >= required else None
