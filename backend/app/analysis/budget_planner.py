@@ -15,10 +15,24 @@ from zoneinfo import ZoneInfo
 from app.market_data.security_profiles import classify_security
 
 PlanStyle = Literal["cautious", "balanced", "growth"]
+InvestmentHorizon = Literal["short", "medium", "long"]
 STYLES: dict[PlanStyle, tuple[int, int]] = {
     "cautious": (60, 0),
     "balanced": (65, 20),
     "growth": (70, 20),
+}
+# Deliberately conservative illustrations, not predicted risk/return or optimized weights.
+# Short (within one year): do not put near-term funds into risky assets.
+# Medium (one to five years): smaller illustrative risk exposure.
+# Long (five-plus years): retains the previous 3E.1 illustrative styles.
+HORIZON_STYLES: dict[InvestmentHorizon, dict[PlanStyle, tuple[int, int]]] = {
+    "short": {
+        "cautious": (0, 0), "balanced": (0, 0), "growth": (0, 0),
+    },
+    "medium": {
+        "cautious": (25, 0), "balanced": (35, 10), "growth": (40, 10),
+    },
+    "long": STYLES,
 }
 MAX_SINGLE_STOCK_PCT = 10
 MAX_SCAN_AGE = timedelta(hours=96)
@@ -38,6 +52,20 @@ def validate_budget(value: Decimal) -> Decimal:
         or value * 100 != (value * 100).to_integral_value()
     ):
         raise BudgetPlanError("Budget must be $0.01–$1,000,000.00 in whole cents")
+    return value.quantize(Decimal("0.01"))
+
+
+def validate_max_loss(value: Decimal | None, budget: Decimal) -> Decimal | None:
+    """Treat this as a *nominal-at-risk dollar cap*, not a loss forecast."""
+    if value is None:
+        return None
+    if (
+        not value.is_finite()
+        or value < 0
+        or value > budget
+        or value * 100 != (value * 100).to_integral_value()
+    ):
+        raise BudgetPlanError("Affordable loss must be $0.00 through the budget, in whole cents")
     return value.quantize(Decimal("0.01"))
 
 
@@ -80,6 +108,8 @@ def make_budget_plan(
     style: PlanStyle,
     *,
     allow_experimental_stocks: bool,
+    horizon: InvestmentHorizon = "long",
+    max_loss_usd: Decimal | None = None,
     scan_state: str,
     scan_completed_at: str | None,
     scan_latest_session: str | None,
@@ -90,15 +120,25 @@ def make_budget_plan(
     amount = validate_budget(budget)
     if style not in STYLES:
         raise BudgetPlanError("Unknown planning style")
+    if horizon not in HORIZON_STYLES:
+        raise BudgetPlanError("Unknown investment horizon")
+    loss_cap = validate_max_loss(max_loss_usd, amount)
     if type(allow_experimental_stocks) is not bool:
         raise BudgetPlanError("Experimental opt-in must be a boolean")
     current = now or datetime.now(UTC)
     if current.utcoffset() is None:
         raise BudgetPlanError("Current time must be timezone-aware")
-    core_pct, satellite_pct = STYLES[style]
+    core_pct, satellite_pct = HORIZON_STYLES[horizon][style]
     cents = int(amount * 100)
-    core_cents = cents * core_pct // 100
-    satellite_cents = cents * satellite_pct // 100
+    allowed_risk_cents = cents if loss_cap is None else int(loss_cap * 100)
+    desired_core_cents = cents * core_pct // 100
+    desired_satellite_cents = cents * satellite_pct // 100
+    # Core-first and *no leverage*: the full principal of risky assets is assumed
+    # to be losable for this budgeting constraint, not just a forecasted drawdown.
+    core_cents = min(desired_core_cents, allowed_risk_cents)
+    satellite_cents = min(
+        desired_satellite_cents, max(0, allowed_risk_cents - core_cents),
+    )
     recent = False
     if scan_state == "complete" and scan_completed_at and scan_latest_session:
         try:
@@ -165,9 +205,52 @@ def make_budget_plan(
     })
     if sum(Decimal(row["amount_usd"]) for row in allocations) != amount:
         raise BudgetPlanError("Allocation ledger does not reconcile")
+    exposed_cents = core_cents + stock_spent
+    if exposed_cents > allowed_risk_cents:
+        raise BudgetPlanError("Risk exposure exceeds the affordable-loss cap")
+    explanations = [
+        {
+            "short": "Within one year: this example leaves the budget in cash rather than putting near-term funds into stocks.",
+            "medium": "One to five years: this example uses smaller illustrative equity slices to account for a shorter recovery window.",
+            "long": "Five-plus years: this example uses the selected style's longer-horizon equity allocation; losses remain possible.",
+        }[horizon],
+    ]
+    if loss_cap is None:
+        explanations.append(
+            "No maximum affordable loss supplied. This scenario has NOT applied a personal dollar-risk cap."
+        )
+    else:
+        explanations.append(
+            "Risky principal is limited to the stated affordable-loss amount, assuming no borrowing. "
+            "This is an exposure cap, NOT a forecast or guarantee about market losses."
+        )
+    if allow_experimental_stocks and satellite_cents > 0 and not choices:
+        explanations.append("No usable individual-stock ideas; their budget remains in cash.")
+    elif not allow_experimental_stocks:
+        explanations.append("Individual-stock ideas remain off until explicitly enabled.")
+    # Hypothetical price falls apply to *all* risk-bearing dollars; cash is kept
+    # at nominal value solely for this simple example, not guaranteed inflation safe.
+    risk_usd = Decimal(exposed_cents) / 100
+    stress_scenarios = [
+        {
+            "decline_percent": percent,
+            "loss_usd": f"{risk_usd * Decimal(percent) / 100:.2f}",
+            "remaining_budget_usd": f"{amount - risk_usd * Decimal(percent) / 100:.2f}",
+        }
+        for percent in (10, 30, 100)
+    ]
     return {
         "budget_usd": f"{amount:.2f}",
         "style": style,
+        "horizon": horizon,
+        "max_loss_usd": f"{loss_cap:.2f}" if loss_cap is not None else None,
+        "modeled_risky_principal_usd": f"{risk_usd:.2f}",
+        "loss_cap_binding": loss_cap is not None and (
+            core_cents < desired_core_cents
+            or (bool(choices) and satellite_cents < desired_satellite_cents)
+        ),
+        "planning_explanations": explanations,
+        "stress_scenarios": stress_scenarios,
         "experimental_opt_in": allow_experimental_stocks,
         "scan_usable_for_ideas": recent,
         "source_session": scan_latest_session if recent else None,
@@ -181,6 +264,9 @@ def make_budget_plan(
             "Individual stock ideas use name-based screening, not verified security classifications or validated return forecasts.",
             "Fractional shares use past adjusted closes, NOT executable quotes. Actual shares, orders, fees and fractional-trading support may differ.",
             "A 30% market drop is a stress example, not the worst possible loss or a forecast.",
+            "Risk-dollar cap is a long-only exposure limit, not a calculated probability of loss or downside guarantee.",
+            "Cash is modeled at nominal face value; inflation and other cash risks are excluded.",
+            "Horizon percentages are illustrative policy examples, not tested or optimized portfolios.",
             "No brokerage orders are created.",
         ],
     }
