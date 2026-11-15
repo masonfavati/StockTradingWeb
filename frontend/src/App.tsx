@@ -4,6 +4,7 @@ import WatchlistPage from './features/watchlist/WatchlistPage'
 import ScannerPage from './features/scanner/ScannerPage'
 import BudgetPlannerPage from './features/research/BudgetPlannerPage'
 import ResearchOverview from './features/research/ResearchOverview'
+import PredictionLabPage from './features/research/PredictionLabPage'
 
 const navigation = [
   { path: '/', label: 'Dashboard' },
@@ -83,8 +84,7 @@ export default function App() {
           <Route path="/planner" element={<BudgetPlannerPage />} />
           <Route path="/portfolio" element={<PlaceholderPage title="Portfolio"
             description="Track positions, transactions, gains, and portfolio risk." />} />
-          <Route path="/forecasts" element={<PlaceholderPage title="Forecast Lab"
-            description="Evaluate statistical predictions and out-of-sample performance." />} />
+          <Route path="/forecasts" element={<PredictionLabPage />} />
           <Route path="*" element={<PlaceholderPage title="Page Not Found"
             description="This page does not exist." />} />
         </Routes>

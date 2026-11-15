@@ -2,7 +2,7 @@
 
 A **free, local stock-market research website** that helps people explore US stocks without needing to understand trading jargon.
 
-It's a work in progress. You can follow companies, monitor limited real-time market activity, save real historical price data, and now **search Alpaca's broad active-tradable US-stock list for research candidates**. It **cannot yet predict which stock is most likely to make money**, guarantee returns, or place real-money orders.
+It's a work in progress. You can follow companies, monitor limited real-time market activity, save real historical price data, and now **search Alpaca's broad active-tradable US-stock list for research candidates**. It now includes a **prospective prediction research lab**, but no model is published for investment allocations until sufficiently many real future outcomes clear predefined walk-forward checks. It cannot guarantee returns or place real-money orders.
 
 ## What can you do today?
 
@@ -13,7 +13,8 @@ It's a work in progress. You can follow companies, monitor limited real-time mar
 | Find Opportunities | Click a button to screen Alpaca's active/tradable US stocks using **completed historical daily prices**, even stocks outside your watchlist. This is an **unvalidated research shortlist, not a buy list**. |
 | Historical data | Import raw and current-adjusted daily prices from Alpaca into PostgreSQL. |
 | Audit | Check saved raw prices for missing market sessions and invalid records. |
-| Portfolio / Forecast Lab | Planned; these pages are not functioning investment tools yet. |
+| Forecast Lab | Audits frozen prospective scans against matured future outcomes, evaluates a time-safe conditional model, and withholds model picks until research gates pass. Initial status may be insufficient evidence. |
+| Portfolio | Planned; no brokerage execution or live holdings tracking. |
 
 ### Important market-data distinction
 

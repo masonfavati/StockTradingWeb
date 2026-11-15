@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, StrictBool, field_validator
 
 from app.analysis.budget_planner import (
     BudgetPlanError,
@@ -21,7 +21,16 @@ from app.analysis.forward_evaluation import ForwardEvaluationError
 from app.analysis.forward_journal import JournalError, entries
 from app.analysis.forward_outcomes import OutcomeJournalError
 from app.analysis.forward_performance import PerformanceReportError, build_performance_report
+from app.analysis.investment_quality import screen_budget_candidates
 from app.analysis.portfolio_comovement import analyze_historical_comovement, unavailable_review
+from app.analysis.prospective_prediction import (
+    PredictionEvidenceError,
+    build_prediction_report,
+    load_verified_windows,
+    report_from_verified_windows,
+    review_prediction,
+    unavailable_prediction,
+)
 from app.api.scanner import _MANAGER
 from app.core.config import Settings
 from app.market_data.history_audit import CalendarError
@@ -102,6 +111,7 @@ class BudgetRequest(BaseModel):
     require_historical_comovement: bool = False
     require_sec_identity: bool = False
     require_sec_industry: bool = False
+    require_prediction: StrictBool = False
 
     @field_validator("max_loss_usd")
     @classmethod
@@ -146,6 +156,20 @@ def overview() -> dict[str, Any]:
         "latest_checkpoint": latest,
         "warnings": report["warnings"],
     }
+
+
+@router.get("/prediction-validation")
+def prediction_validation() -> dict[str, Any]:
+    """Audit completed prospective evidence without making stock-price queries."""
+    try:
+        return build_prediction_report(_research_root())
+    except (OSError, ValueError, JournalError, ForwardEvaluationError,
+            OutcomeJournalError, PerformanceReportError, CalendarError,
+            PredictionEvidenceError) as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Prediction audit unavailable ({type(exc).__name__}); no results published.",
+        ) from exc
 
 
 @router.post("/budget-plan")
@@ -206,6 +230,61 @@ def budget_plan(request: BudgetRequest) -> dict[str, Any]:
                 "frozen_checkpoint" if result["scan_usable_for_ideas"] else None
             )
     sec_review: dict[str, Any] | None = None
+    industry_review: dict[str, Any] | None = None
+    if request.require_prediction and request.allow_experimental_stocks:
+        prior = [row["symbol"] for row in result["allocation"]
+                 if row["category"] == "experimental_stock_idea"]
+        # Score ALL of the eligible frozen shortlist, not just the first two
+        # scanner picks; preserve every ordinary security/quality gate.
+        eligible, _audit = screen_budget_candidates(
+            source_data["candidates"],
+            source_data["scan_latest_session"] if result["scan_usable_for_ideas"] else None,
+            max_selections=20,
+        )
+        eligible_symbols = {row["symbol"] for row in eligible}
+        model_candidates = [row for row in source_data["candidates"]
+                            if isinstance(row, dict) and row.get("symbol") in eligible_symbols]
+        try:
+            # This reads only previously pinned records and matured, independently
+            # checked outcomes; it does not fetch history or rerun a scanner.
+            windows, _counts = load_verified_windows(_research_root(), now=now)
+            report = report_from_verified_windows(windows, _counts)
+            prediction_review = review_prediction(
+                model_candidates, result["source_session"], windows, report,
+            )
+        except (OSError, ValueError, JournalError, ForwardEvaluationError,
+                OutcomeJournalError, PerformanceReportError, CalendarError,
+                PredictionEvidenceError):
+            prediction_review = unavailable_prediction(prior)
+        # Reorder only the small, already screened shortlist if the predeclared
+        # gate passed. This affects which TWO candidates reach later SEC and
+        # co-movement checks. It never bypasses those safety checks.
+        if prediction_review.get("status") == "research_gate_passed":
+            score_order = sorted(
+                prediction_review["scores"],
+                key=lambda row: (-row["estimated_probability_beating_spy"], row["symbol"]),
+            )
+            score_ranks = {row["symbol"]: rank for rank, row in enumerate(score_order)}
+            source_data["candidates"] = sorted(
+                source_data["candidates"],
+                key=lambda row: score_ranks.get(row.get("symbol"), 10_000)
+                if isinstance(row, dict) else 10_000,
+            )
+        source_kind = result["source_kind"]
+        result = make_budget_plan(
+            request.budget_usd, request.style,
+            allow_experimental_stocks=request.allow_experimental_stocks,
+            horizon=request.horizon,
+            max_loss_usd=request.max_loss_usd,
+            require_prediction=True,
+            prediction_review=prediction_review,
+            scan_state=source_data["scan_state"],
+            scan_completed_at=source_data["scan_completed_at"],
+            scan_latest_session=source_data["scan_latest_session"],
+            candidates=source_data["candidates"],
+            now=now,
+        )
+        result["source_kind"] = source_kind
     if require_sec and request.allow_experimental_stocks:
         proposed = [row["symbol"] for row in result["allocation"]
                     if row["category"] == "experimental_stock_idea"]
@@ -224,6 +303,8 @@ def budget_plan(request: BudgetRequest) -> dict[str, Any]:
             max_loss_usd=request.max_loss_usd,
             require_sec_identity=True,
             sec_identity_review=sec_review,
+            require_prediction=request.require_prediction,
+            prediction_review=prediction_review if request.require_prediction else None,
             scan_state=source_data["scan_state"],
             scan_completed_at=source_data["scan_completed_at"],
             scan_latest_session=source_data["scan_latest_session"],
@@ -231,7 +312,6 @@ def budget_plan(request: BudgetRequest) -> dict[str, Any]:
             now=now,
         )
         result["source_kind"] = original_kind
-    industry_review: dict[str, Any] | None = None
     if request.require_sec_industry and request.allow_experimental_stocks:
         # The locally imported SEC SIC reference must be pinned to the same
         # ticker/CIK source. Failure is always cash, never inferred metadata.
@@ -254,6 +334,8 @@ def budget_plan(request: BudgetRequest) -> dict[str, Any]:
             sec_identity_review=sec_review,
             require_sec_industry=True,
             sec_industry_review=industry_review,
+            require_prediction=request.require_prediction,
+            prediction_review=prediction_review if request.require_prediction else None,
             scan_state=source_data["scan_state"],
             scan_completed_at=source_data["scan_completed_at"],
             scan_latest_session=source_data["scan_latest_session"],
@@ -294,6 +376,8 @@ def budget_plan(request: BudgetRequest) -> dict[str, Any]:
             sec_identity_review=sec_review,
             require_sec_industry=request.require_sec_industry,
             sec_industry_review=industry_review,
+            require_prediction=request.require_prediction,
+            prediction_review=prediction_review if request.require_prediction else None,
             scan_state=source_data["scan_state"],
             scan_completed_at=source_data["scan_completed_at"],
             scan_latest_session=source_data["scan_latest_session"],
