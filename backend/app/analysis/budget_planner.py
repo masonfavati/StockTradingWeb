@@ -83,6 +83,8 @@ def make_budget_plan(
     sec_identity_review: Mapping[str, Any] | None = None,
     require_sec_industry: bool = False,
     sec_industry_review: Mapping[str, Any] | None = None,
+    require_prediction: bool = False,
+    prediction_review: Mapping[str, Any] | None = None,
     now: datetime | None = None,
 ) -> dict[str, Any]:
     """Return illustrative dollar slices, with remaining pennies assigned to cash."""
@@ -100,6 +102,8 @@ def make_budget_plan(
         raise BudgetPlanError("SEC identity opt-in must be a boolean")
     if type(require_sec_industry) is not bool:
         raise BudgetPlanError("SEC SIC opt-in must be a boolean")
+    if type(require_prediction) is not bool:
+        raise BudgetPlanError("Prediction-evidence opt-in must be a boolean")
     current = now or datetime.now(UTC)
     if current.utcoffset() is None:
         raise BudgetPlanError("Current time must be timezone-aware")
@@ -159,6 +163,16 @@ def make_budget_plan(
         choices = [row for row in choices if row["symbol"] in approved_industry]
         quality_review["selected_count"] = len(choices)
         quality_review["industry_gated_count"] = prior - len(choices)
+    if require_prediction and allow_experimental_stocks:
+        approved_prediction: set[str] = set()
+        if prediction_review is not None and prediction_review.get("status") == "research_gate_passed":
+            verified = prediction_review.get("approved_symbols")
+            if isinstance(verified, list) and all(isinstance(symbol, str) for symbol in verified):
+                approved_prediction = set(verified)
+        before = len(choices)
+        choices = [row for row in choices if row["symbol"] in approved_prediction]
+        quality_review["selected_count"] = len(choices)
+        quality_review["prediction_gated_count"] = before - len(choices)
     if require_historical_comovement and allow_experimental_stocks:
         # Only *server-supplied* aligned evidence may authorize stock dollars.
         # If the comparison cannot be performed, all experimental dollars stay cash.
@@ -197,6 +211,10 @@ def make_budget_plan(
             requested = sec_industry_review.get("requested_symbols")
             if isinstance(requested, list) and 1 <= len(requested) <= 2:
                 denominator = max(denominator, len(requested))
+        if require_prediction and prediction_review is not None:
+            slots = prediction_review.get("proposed_slot_count")
+            if type(slots) is int and 1 <= slots <= 2:
+                denominator = max(denominator, slots)
         if require_historical_comovement and comovement_review is not None:
             requested = comovement_review.get("requested_symbols")
             if isinstance(requested, list) and 1 <= len(requested) <= 2:
@@ -304,6 +322,8 @@ def make_budget_plan(
         "sec_identity_review": dict(sec_identity_review) if require_sec_identity and allow_experimental_stocks and sec_identity_review is not None else None,
         "sec_industry_required": require_sec_industry and allow_experimental_stocks,
         "sec_industry_review": dict(sec_industry_review) if require_sec_industry and allow_experimental_stocks and sec_industry_review is not None else None,
+        "prediction_required": require_prediction and allow_experimental_stocks,
+        "prediction_review": dict(prediction_review) if require_prediction and allow_experimental_stocks and prediction_review is not None else None,
         "scan_usable_for_ideas": recent,
         "source_session": scan_latest_session if recent else None,
         "allocation": allocations,
@@ -321,6 +341,7 @@ def make_budget_plan(
             "Risk-dollar cap is a long-only exposure limit, not a calculated probability of loss or downside guarantee.",
             "Cash is modeled at nominal face value; inflation and other cash risks are excluded.",
             "Horizon percentages are illustrative policy examples, not tested or optimized portfolios.",
+            "Predictive odds may become available only after predeclared walk-forward research gates; historic skill does not guarantee future returns.",
             "No brokerage orders are created.",
         ],
     }

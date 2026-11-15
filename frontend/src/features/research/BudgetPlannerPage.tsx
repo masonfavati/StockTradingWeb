@@ -33,6 +33,7 @@ export default function BudgetPlannerPage() {
   const [requireComovement, setRequireComovement] = useState(true)
   const [requireSecIdentity, setRequireSecIdentity] = useState(false)
   const [requireSecIndustry, setRequireSecIndustry] = useState(false)
+  const [requirePrediction, setRequirePrediction] = useState(false)
   const [plan, setPlan] = useState<BudgetPlan | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -63,7 +64,7 @@ export default function BudgetPlannerPage() {
       const calculated = await calculateBudgetPlan(
         budget, style, experimental, horizon, maxLoss || null,
         experimental && requireComovement, experimental && requireSecIdentity,
-        experimental && requireSecIndustry,
+        experimental && requireSecIndustry, experimental && requirePrediction,
       )
       if (requestSerial.current === serial) setPlan(calculated)
     } catch (caught) {
@@ -161,6 +162,15 @@ export default function BudgetPlannerPage() {
         <span>Require a 61-session historical co-movement review before allocating to individual stocks.
           Reject unusually correlated stock pairs; if the price evidence is missing or unavailable, keep those dollars in cash.
           This makes one small Alpaca historical-data request when eligible stocks exist.</span>
+      </label>}
+      {experimental && <label className="flex items-start gap-3 text-sm text-slate-200 sm:col-span-2">
+        <input type="checkbox" className="mt-1 accent-emerald-500" checked={requirePrediction}
+          aria-label="Require prospective prediction evidence"
+          onChange={(event) => { setRequirePrediction(event.target.checked); invalidatePlan() }} />
+        <span>Require a model with prospective walk-forward evidence before allocating to individual stocks.
+          This model cannot be used until enough truly forward-recorded outcomes exist AND predeclared
+          validation checks pass. Otherwise the experimental allocation remains cash. The model estimates
+          relative outperformance against SPY, not a guaranteed dollar profit.</span>
       </label>}
       <div className="sm:col-span-2">
         <button type="submit" disabled={pending}
@@ -272,6 +282,31 @@ export default function BudgetPlannerPage() {
               href="https://www.sec.gov/search-filings/edgar-application-programming-interfaces">
               SEC official submissions data documentation
             </a>
+          </div>}
+        {plan.experimental_opt_in && plan.prediction_required && plan.prediction_review &&
+          <div className="mt-5 rounded-xl border border-slate-700 bg-slate-950 p-4">
+            <h3 className="font-semibold">Prospective prediction evidence</h3>
+            <p className="mt-2 text-sm text-slate-300">
+              Status: {plan.prediction_review.status.replace(/_/g, ' ')}.
+              {' '}Approved {plan.prediction_review.approved_symbols.length} stock(s).
+              {' '}Unapproved experimental dollars remain cash.
+            </p>
+            {plan.prediction_review.scores.length > 0 && <ul className="mt-3 space-y-2 text-sm text-slate-300">
+              {plan.prediction_review.scores.map(row => <li key={row.symbol}>
+                {row.symbol}: experimental probability of beating SPY{' '}
+                {(row.estimated_probability_beating_spy * 100).toFixed(1)}%,
+                training prior {(row.training_prior * 100).toFixed(1)}%.
+              </li>)}
+            </ul>}
+            {plan.prediction_review.excluded.length > 0 && <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-amber-200">
+              {plan.prediction_review.excluded.map(row => <li key={row.symbol}>
+                {row.symbol}: {row.reason.replace(/_/g, ' ')}.
+              </li>)}
+            </ul>}
+            <p className="mt-3 text-xs text-amber-200">{plan.prediction_review.caveat}</p>
+            <Link to="/forecasts" className="mt-2 inline-block text-sm text-emerald-400 underline">
+              See full walk-forward validation and limitations
+            </Link>
           </div>}
         {plan.experimental_opt_in && plan.historical_comovement_required && plan.comovement_review &&
           <div className="mt-5 rounded-xl border border-slate-700 bg-slate-950 p-4">

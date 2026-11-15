@@ -46,12 +46,16 @@ def _issuer_name_key(name: str) -> str:
 def screen_budget_candidates(
     candidates: Sequence[Mapping[str, Any]],
     session: str | None,
+    *,
+    max_selections: int = MAX_SATELLITES,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Preserve ranked order while gating up to two distinct apparent issuers.
 
     A missing input or unverified security classification fails closed. We never
     infer a missing risk/liquidity value, and never label survivors 'safe'.
     """
+    if type(max_selections) is not int or not 1 <= max_selections <= 20:
+        raise ValueError("Research selection limit must be 1–20")
     selected: list[dict[str, Any]] = []
     counts: Counter[str] = Counter()
     seen_symbols: set[str] = set()
@@ -102,7 +106,7 @@ def screen_budget_candidates(
             counts["repeated_apparent_issuer"] += 1
             continue
         seen_issuers.add(issuer)
-        if len(selected) >= MAX_SATELLITES:
+        if len(selected) >= max_selections:
             counts["passed_not_selected"] += 1
             continue
         selected.append({
@@ -123,7 +127,7 @@ def screen_budget_candidates(
             "min_approx_daily_dollar_volume_usd": MIN_APPROX_DAILY_DOLLAR_VOLUME_USD,
             "max_annualized_volatility_pct": MAX_ANNUALIZED_VOLATILITY_PCT,
             "min_60d_drawdown_pct": MIN_60D_DRAWDOWN_PCT,
-            "max_individual_stocks": MAX_SATELLITES,
+            "max_individual_stocks": max_selections,
         },
         "caveat": (
             "Heuristic share names and adjusted historical trading metrics only. "

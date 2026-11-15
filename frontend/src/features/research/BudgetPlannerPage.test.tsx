@@ -300,4 +300,39 @@ describe('BudgetPlannerPage', () => {
     expect(screen.getByText('Not an independent sector-exposure guarantee.')).toBeTruthy()
   })
 
+  it('prediction-evidence switch is opt-in and clears a previous budget example', async () => {
+    render(<MemoryRouter><BudgetPlannerPage /></MemoryRouter>)
+    expect(screen.queryByLabelText('Require prospective prediction evidence')).toBeNull()
+    fireEvent.click(screen.getByRole('checkbox'))
+    expect((screen.getByLabelText('Require prospective prediction evidence') as HTMLInputElement).checked).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Show budget example' }))
+    await waitFor(() => expect(screen.getByText('Why these amounts?')).toBeTruthy())
+    fireEvent.click(screen.getByLabelText('Require prospective prediction evidence'))
+    expect(screen.queryByText('Why these amounts?')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Show budget example' }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    const [, init] = fetchMock.mock.calls[1] as [string, RequestInit]
+    expect(JSON.parse(init.body as string).require_prediction).toBe(true)
+  })
+
+  it('displays withheld prediction evidence and the cash-preservation warning', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({
+      ...sample, experimental_opt_in: true, prediction_required: true,
+      prediction_review: {
+        version: 'prospective-conditional-logit-v1', status: 'insufficient_evidence',
+        requested_symbols: ['AAA'], approved_symbols: [], scores: [],
+        excluded: [{ symbol: 'AAA', reason: 'no_published_predictive_evidence' }],
+        caveat: 'No prospectively validated evidence; cash retained.',
+      },
+    }) })
+    render(<MemoryRouter><BudgetPlannerPage /></MemoryRouter>)
+    fireEvent.click(screen.getByRole('checkbox'))
+    fireEvent.click(screen.getByLabelText('Require prospective prediction evidence'))
+    fireEvent.click(screen.getByRole('button', { name: 'Show budget example' }))
+    await waitFor(() => expect(screen.getByText('Prospective prediction evidence')).toBeTruthy())
+    expect(screen.getByText(/AAA: no published predictive evidence/)).toBeTruthy()
+    expect(screen.getByText('No prospectively validated evidence; cash retained.')).toBeTruthy()
+    expect(screen.getByText('See full walk-forward validation and limitations')).toBeTruthy()
+  })
+
 })

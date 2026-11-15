@@ -104,6 +104,8 @@ export interface ComovementReview {
 }
 
 export interface BudgetPlan {
+  prediction_required?: boolean
+  prediction_review?: PredictionReview | null
   historical_comovement_required?: boolean
   comovement_review?: ComovementReview | null
   sec_identity_required?: boolean
@@ -140,7 +142,7 @@ export async function calculateBudgetPlan(
   budget: string, style: PlanStyle, experimental: boolean,
   horizon: InvestmentHorizon = 'long', maxLoss: string | null = null,
   requireHistoricalComovement = false, requireSecIdentity = false,
-  requireSecIndustry = false,
+  requireSecIndustry = false, requirePrediction = false,
 ): Promise<BudgetPlan> {
   const response = await fetch('/api/research/budget-plan', {
     method: 'POST',
@@ -154,8 +156,56 @@ export async function calculateBudgetPlan(
       ...(requireHistoricalComovement ? { require_historical_comovement: true } : {}),
       ...((requireSecIdentity || requireSecIndustry) ? { require_sec_identity: true } : {}),
       ...(requireSecIndustry ? { require_sec_industry: true } : {}),
+      ...(requirePrediction ? { require_prediction: true } : {}),
     }),
   })
   if (!response.ok) throw new Error('Could not calculate the budget scenario. Check your amount and try again.')
   return (await response.json()) as BudgetPlan
+}
+
+export interface PredictionValidation {
+  version: string
+  target: string
+  research_rule: string
+  holding_sessions: number
+  status: 'insufficient_evidence' | 'not_validated' | 'research_gate_passed'
+  source_sha256: string
+  completed_compatible_windows: number
+  completed_candidate_outcomes: number
+  journal_status_counts: Record<string, number>
+  walk_forward: {
+    validation_windows: number
+    validation_candidates: number
+    nonoverlapping_validation_windows: number
+    brier_score: number | null
+    expanding_prior_brier_score: number | null
+    brier_improvement: number | null
+    top_two_mean_excess_vs_spy_pp: number | null
+    top_two_mean_vs_original_scan_pp: number | null
+    top_two_windows_beating_spy: number
+    checks: Record<string, boolean>
+    research_gate_passed: boolean
+  }
+  method: string
+  warnings: string[]
+}
+
+export interface PredictionReview {
+  version: string
+  status: string
+  requested_symbols: string[]
+  approved_symbols: string[]
+  scores: { symbol: string; estimated_probability_beating_spy: number; training_prior: number }[]
+  excluded: { symbol: string; reason: string }[]
+  training_windows?: number
+  training_candidate_outcomes?: number
+  validation?: PredictionValidation['walk_forward'] | null
+  source_sha256?: string
+  caveat: string
+}
+
+export async function getPredictionValidation(): Promise<PredictionValidation> {
+  const response = await fetch('/api/research/prediction-validation')
+  if (!response.ok) throw new Error('The audited prospective prediction report is unavailable.')
+  return (await response.json()) as PredictionValidation
 }

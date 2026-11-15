@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 from app.analysis.forward_journal import JournalError
+from app.analysis.forward_outcomes import OutcomeJournalError, evaluate_ready
 from app.analysis.forward_schedule import (
     ScheduleError,
     backend_dir,
@@ -46,6 +47,19 @@ def main() -> None:
                     print(f"Signal: {entry.checkpoint.signal_session}")
                     print(f"Original checksum: {entry.expected_sha256}")
                 print("No orders placed. Missing sessions are never reconstructed.")
+                # Run AFTER the morning scan. Only genuinely matured registered
+                # outcomes are evaluated, with the existing immutable journal
+                # protocol and a fixed maximum of five outcome audits per day.
+                # Existing launchd installations get this without plist changes.
+                outcomes = evaluate_ready(root, limit=5)
+                print(
+                    f"Matured outcome audits: {len(outcomes.evaluated)} completed; "
+                    f"{len(outcomes.failed)} failed; {outcomes.skipped} other records."
+                )
+                for failure in outcomes.failed:
+                    print(f"OUTCOME EVALUATION FAILED: {failure}", file=sys.stderr)
+                if outcomes.failed:
+                    raise SystemExit(1)
         elif args.action == "log":
             records = read_attempts(root, limit=args.limit)
             print("Recent scheduler attempts (local, NOT independently timestamp-certified):")
@@ -74,7 +88,8 @@ def main() -> None:
                 print(f"To deactivate: launchctl bootout gui/$(id -u) '{output}'")
                 print("Hourly wake-up; only 08:00–08:59 New York time can scan.")
                 print("Requires an awake Mac and working provider credentials/network.")
-    except (ScheduleError, JournalError, CalendarError, OSError, ValueError) as exc:
+    except (ScheduleError, JournalError, OutcomeJournalError, CalendarError,
+            OSError, ValueError) as exc:
         print(f"SCHEDULER BLOCKED: {exc}", file=sys.stderr)
         raise SystemExit(1) from None
 
