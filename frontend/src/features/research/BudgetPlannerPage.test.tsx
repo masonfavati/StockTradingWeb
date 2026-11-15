@@ -249,4 +249,55 @@ describe('BudgetPlannerPage', () => {
     expect(screen.getByText('Not verified common shares, sector classification, or return forecasts.')).toBeTruthy()
   })
 
+  it('SIC evidence is opt-in and also requires the SEC filer cross-reference', async () => {
+    render(<MemoryRouter><BudgetPlannerPage /></MemoryRouter>)
+    expect(screen.queryByLabelText('Require SEC SIC industry evidence')).toBeNull()
+    fireEvent.click(screen.getByRole('checkbox'))
+    fireEvent.click(screen.getByLabelText('Require SEC SIC industry evidence'))
+    expect((screen.getByLabelText('Require SEC filer cross-reference') as HTMLInputElement).checked).toBe(true)
+    expect((screen.getByLabelText('Require SEC filer cross-reference') as HTMLInputElement).disabled).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Show budget example' }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    const posted = JSON.parse(init.body as string)
+    expect(posted.require_sec_industry).toBe(true)
+    expect(posted.require_sec_identity).toBe(true)
+  })
+
+  it('SIC option clears previously calculated allocations', async () => {
+    render(<MemoryRouter><BudgetPlannerPage /></MemoryRouter>)
+    fireEvent.click(screen.getByRole('checkbox'))
+    fireEvent.click(screen.getByRole('button', { name: 'Show budget example' }))
+    await waitFor(() => expect(screen.getByText('Why these amounts?')).toBeTruthy())
+    fireEvent.click(screen.getByLabelText('Require SEC SIC industry evidence'))
+    expect(screen.queryByText('Why these amounts?')).toBeNull()
+  })
+
+  it('displays SIC classifications and cash-preserving exclusions', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({
+      ...sample,
+      experimental_opt_in: true,
+      sec_industry_required: true,
+      sec_industry_review: {
+        version: 'sec-sic-filer-industry-v1', status: 'checked',
+        requested_symbols: ['AAA', 'BBB'], approved_symbols: ['AAA'],
+        matches: [
+          { symbol: 'AAA', cik: '0000001001', sic: '3571', sic_description: 'Electronic Computers' },
+          { symbol: 'BBB', cik: '0000001002', sic: '3571', sic_description: 'Electronic Computers' },
+        ],
+        excluded: [{ symbol: 'BBB', reason: 'same_reported_sic_as_prior_stock' }],
+        imported_at_utc: '2026-11-15T12:00:00+00:00',
+        source_sha256: 'abc', source_url: 'https://www.sec.gov/Archives/edgar/daily-index/bulkdata/submissions.zip',
+        caveat: 'Not an independent sector-exposure guarantee.',
+      },
+    }) })
+    render(<MemoryRouter><BudgetPlannerPage /></MemoryRouter>)
+    fireEvent.click(screen.getByRole('checkbox'))
+    fireEvent.click(screen.getByRole('button', { name: 'Show budget example' }))
+    await waitFor(() => expect(screen.getByText('SEC-reported SIC industry evidence')).toBeTruthy())
+    expect(screen.getByText(/AAA: SEC SIC 3571/)).toBeTruthy()
+    expect(screen.getByText(/BBB: same reported sic as prior stock/)).toBeTruthy()
+    expect(screen.getByText('Not an independent sector-exposure guarantee.')).toBeTruthy()
+  })
+
 })

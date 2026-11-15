@@ -75,6 +75,19 @@ export interface SecIdentityReview {
   caveat: string
 }
 
+export interface SecIndustryReview {
+  version: string
+  status: 'checked' | 'unavailable' | 'stale' | 'mismatched_reference'
+  requested_symbols: string[]
+  approved_symbols: string[]
+  matches: { symbol: string; cik: string; sic: string; sic_description: string }[]
+  excluded: { symbol: string; reason: string }[]
+  source_url: string
+  source_sha256: string | null
+  imported_at_utc: string | null
+  caveat: string
+}
+
 export interface ComovementReview {
   version: string
   status: 'checked' | 'insufficient_history' | 'unavailable' | 'not_applicable'
@@ -95,6 +108,8 @@ export interface BudgetPlan {
   comovement_review?: ComovementReview | null
   sec_identity_required?: boolean
   sec_identity_review?: SecIdentityReview | null
+  sec_industry_required?: boolean
+  sec_industry_review?: SecIndustryReview | null
   budget_usd: string
   style: PlanStyle
   horizon: InvestmentHorizon
@@ -125,6 +140,7 @@ export async function calculateBudgetPlan(
   budget: string, style: PlanStyle, experimental: boolean,
   horizon: InvestmentHorizon = 'long', maxLoss: string | null = null,
   requireHistoricalComovement = false, requireSecIdentity = false,
+  requireSecIndustry = false,
 ): Promise<BudgetPlan> {
   const response = await fetch('/api/research/budget-plan', {
     method: 'POST',
@@ -136,7 +152,8 @@ export async function calculateBudgetPlan(
       horizon,
       max_loss_usd: maxLoss,
       ...(requireHistoricalComovement ? { require_historical_comovement: true } : {}),
-      ...(requireSecIdentity ? { require_sec_identity: true } : {}),
+      ...((requireSecIdentity || requireSecIndustry) ? { require_sec_identity: true } : {}),
+      ...(requireSecIndustry ? { require_sec_industry: true } : {}),
     }),
   })
   if (!response.ok) throw new Error('Could not calculate the budget scenario. Check your amount and try again.')
