@@ -4,15 +4,13 @@ Core ETF is an illustrative ticker, not a verified recommendation or live quote.
 Satellite ideas are never used without an explicit opt-in and a fresh full scan.
 """
 
-import math
-import re
 from collections.abc import Mapping, Sequence
 from datetime import UTC, date, datetime, timedelta
 from decimal import ROUND_DOWN, Decimal
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
-from app.market_data.security_profiles import classify_security
+from app.analysis.investment_quality import screen_budget_candidates
 
 PlanStyle = Literal["cautious", "balanced", "growth"]
 InvestmentHorizon = Literal["short", "medium", "long"]
@@ -36,7 +34,6 @@ HORIZON_STYLES: dict[InvestmentHorizon, dict[PlanStyle, tuple[int, int]]] = {
 }
 MAX_SINGLE_STOCK_PCT = 10
 MAX_SCAN_AGE = timedelta(hours=96)
-_SYMBOL = re.compile(r"[A-Z][A-Z0-9.-]{0,19}\Z")
 NY = ZoneInfo("America/New_York")
 
 
@@ -67,40 +64,6 @@ def validate_max_loss(value: Decimal | None, budget: Decimal) -> Decimal | None:
     ):
         raise BudgetPlanError("Affordable loss must be $0.00 through the budget, in whole cents")
     return value.quantize(Decimal("0.01"))
-
-
-def _eligible_ideas(
-    candidates: Sequence[Mapping[str, Any]], latest_session: str | None,
-) -> list[dict[str, Any]]:
-    """Heuristic common-share evidence is still NOT authoritative type verification."""
-    picked: list[dict[str, Any]] = []
-    seen: set[str] = set()
-    for raw in candidates:
-        symbol = raw.get("symbol")
-        name = raw.get("name")
-        historical_close = raw.get("adjusted_close")
-        if (
-            not isinstance(symbol, str)
-            or not isinstance(name, str)
-            or _SYMBOL.fullmatch(symbol) is None
-            or symbol in seen
-            or raw.get("last_session") != latest_session
-            or classify_security(symbol, name) != "common_name_evidence"
-            or isinstance(historical_close, bool)
-            or not isinstance(historical_close, (float, int))
-            or not math.isfinite(historical_close)
-            or historical_close <= 0
-        ):
-            continue
-        seen.add(symbol)
-        picked.append({
-            "symbol": symbol,
-            "name": name,
-            "historical_adjusted_close": str(historical_close),
-        })
-        if len(picked) == 2:
-            break
-    return picked
 
 
 def make_budget_plan(
@@ -153,11 +116,13 @@ def make_budget_plan(
             )
         except (ValueError, TypeError):
             recent = False
-    choices = (
-        _eligible_ideas(candidates, scan_latest_session)
-        if allow_experimental_stocks and recent and satellite_cents >= 2
-        else []
+    # Every individual-stock allocation is conditional on these independent
+    # historical quality screens; absent data is NEVER guessed or accepted.
+    checked = allow_experimental_stocks and recent and satellite_cents >= 2
+    choices, quality_review = screen_budget_candidates(
+        candidates if checked else [], scan_latest_session if checked else None,
     )
+    quality_review["applied"] = checked
     allocations: list[dict[str, Any]] = [
         {
             "category": "diversified_core_example",
@@ -190,7 +155,15 @@ def make_budget_plan(
                 "percent_of_budget": round(100 * per_stock / cents, 2),
                 "indicative_fractional_shares": str(estimate),
                 "historical_price_usd": candidate["historical_adjusted_close"],
-                "reason": "Unvalidated momentum/volatility screen; optional research idea only.",
+                "reason": (
+                    "Optional, unvalidated research idea; historical 20-session approximate "
+                    "dollar volume ${:,.0f}, annualized volatility {:.1f}%, "
+                    "60-session drawdown {:.1f}%. No sector/correlation proof."
+                ).format(
+                    candidate["approx_daily_dollar_volume"],
+                    candidate["annualized_volatility_pct"],
+                    candidate["drawdown_60d_pct"],
+                ),
             })
     cash_cents = cents - core_cents - stock_spent
     allocations.append({
@@ -225,7 +198,16 @@ def make_budget_plan(
             "This is an exposure cap, NOT a forecast or guarantee about market losses."
         )
     if allow_experimental_stocks and satellite_cents > 0 and not choices:
-        explanations.append("No usable individual-stock ideas; their budget remains in cash.")
+        explanations.append(
+            "No current, quality-screened individual-stock ideas; the optional slice "
+            "remains cash instead of being forced into a ticker."
+        )
+    elif allow_experimental_stocks and choices:
+        explanations.append(
+            "Optional stock ideas passed conservative historical price, approximate "
+            "dollar-volume, volatility and drawdown screens; this does NOT show "
+            "that returns are predictable or the holdings are uncorrelated."
+        )
     elif not allow_experimental_stocks:
         explanations.append("Individual-stock ideas remain off until explicitly enabled.")
     # Hypothetical price falls apply to *all* risk-bearing dollars; cash is kept
@@ -252,6 +234,7 @@ def make_budget_plan(
         "planning_explanations": explanations,
         "stress_scenarios": stress_scenarios,
         "experimental_opt_in": allow_experimental_stocks,
+        "quality_review": quality_review,
         "scan_usable_for_ideas": recent,
         "source_session": scan_latest_session if recent else None,
         "allocation": allocations,
@@ -261,7 +244,8 @@ def make_budget_plan(
         "warnings": [
             "This is a budget scenario, not advice about what you personally should buy.",
             "SPY is an example diversified ETF, not a price-checked or personalized recommendation.",
-            "Individual stock ideas use name-based screening, not verified security classifications or validated return forecasts.",
+            "Individual stock ideas use name-only and historical quality screens, not verified security classes, issuer identities or validated return forecasts.",
+            "A diversified ETF and two different tickers do not prove industry diversification or low correlation.",
             "Fractional shares use past adjusted closes, NOT executable quotes. Actual shares, orders, fees and fractional-trading support may differ.",
             "A 30% market drop is a stress example, not the worst possible loss or a forecast.",
             "Risk-dollar cap is a long-only exposure limit, not a calculated probability of loss or downside guarantee.",

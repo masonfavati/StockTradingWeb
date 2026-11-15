@@ -46,6 +46,22 @@ export interface BudgetSlice {
   historical_price_usd: string | null
   reason: string
 }
+export interface QualityReview {
+  version: string
+  applied: boolean
+  screened_count: number
+  selected_count: number
+  excluded_counts: Record<string, number>
+  thresholds: {
+    min_adjusted_close_usd: number
+    min_approx_daily_dollar_volume_usd: number
+    max_annualized_volatility_pct: number
+    min_60d_drawdown_pct: number
+    max_individual_stocks: number
+  }
+  caveat: string
+}
+
 export interface BudgetPlan {
   budget_usd: string
   style: PlanStyle
@@ -56,6 +72,7 @@ export interface BudgetPlan {
   planning_explanations: string[]
   stress_scenarios: { decline_percent: number; loss_usd: string; remaining_budget_usd: string }[]
   experimental_opt_in: boolean
+  quality_review: QualityReview
   scan_usable_for_ideas: boolean
   source_session: string | null
   source_kind: 'website_scan' | 'frozen_checkpoint' | null

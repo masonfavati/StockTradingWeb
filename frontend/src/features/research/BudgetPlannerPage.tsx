@@ -7,6 +7,19 @@ import {
   type PlanStyle,
 } from './researchApi'
 
+const qualityLabels: Record<string, string> = {
+  unverified_share_type: 'Not enough evidence of ordinary shares',
+  duplicate_ticker: 'Duplicate ticker',
+  outdated_session: 'Not from the latest completed session',
+  missing_or_invalid_metrics: 'Missing or invalid historical risk/liquidity data',
+  below_price_floor: 'Below historical adjusted-price threshold',
+  below_liquidity_screen: 'Below approximate historical trading-volume threshold',
+  above_volatility_screen: 'Volatility exceeds research threshold',
+  outside_drawdown_screen: 'Recent drawdown outside research threshold',
+  repeated_apparent_issuer: 'Possible duplicate company/share class',
+  passed_not_selected: 'Passed screens; excluded by two-stock concentration limit',
+}
+
 function dollars(value: string): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(value))
 }
@@ -148,6 +161,34 @@ export default function BudgetPlannerPage() {
             The dollar-loss limit reduced this scenario's stock exposure.
           </p>}
         </div>
+        {plan.experimental_opt_in && <div className="mt-5 rounded-xl border border-slate-700 bg-slate-950 p-4">
+          <h3 className="font-semibold">Individual-stock research quality checks</h3>
+          {plan.quality_review?.applied ? <>
+            <p className="mt-2 text-sm text-slate-300">
+              Reviewed {plan.quality_review.screened_count} ranked shortlist candidates; selected{' '}
+              {plan.quality_review.selected_count} for possible experimental slices.
+              This is not a review of every security in the market.
+            </p>
+            <p className="mt-2 text-xs text-slate-400">
+              Historical adjusted price ≥ {dollars(String(plan.quality_review.thresholds.min_adjusted_close_usd))};
+              {' '}approximate recent daily dollar volume ≥ {dollars(String(plan.quality_review.thresholds.min_approx_daily_dollar_volume_usd))};
+              {' '}annualized volatility ≤ {plan.quality_review.thresholds.max_annualized_volatility_pct}%;
+              {' '}60-session drawdown ≥ {plan.quality_review.thresholds.min_60d_drawdown_pct}%.
+              At most {plan.quality_review.thresholds.max_individual_stocks} apparent distinct issuers.
+            </p>
+            {Object.entries(plan.quality_review.excluded_counts).length > 0 && <div className="mt-3">
+              <p className="text-sm font-semibold">Why shortlist candidates were excluded</p>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-slate-300">
+                {Object.entries(plan.quality_review.excluded_counts).map(([key, count]) =>
+                  <li key={key}>{qualityLabels[key] ?? key}: {count}</li>)}
+              </ul>
+            </div>}
+            <p className="mt-3 text-xs text-amber-200">{plan.quality_review.caveat}</p>
+          </> : <p className="mt-2 text-sm text-amber-200">
+            No quality screening was applied because the optional stock allocation was not available,
+            the historical shortlist was not recent enough, or the risk budget was too small.
+          </p>}
+        </div>}
         <div className="mt-5 space-y-3">
           {plan.allocation.map((item, index) => (
             <article key={`${item.symbol ?? 'cash'}-${index}`} className="rounded-xl border border-slate-700 bg-slate-950 p-4">
