@@ -3,7 +3,7 @@
 import hashlib
 import json
 import os
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Literal
@@ -21,8 +21,11 @@ from app.analysis.forward_evaluation import ForwardEvaluationError
 from app.analysis.forward_journal import JournalError, entries
 from app.analysis.forward_outcomes import OutcomeJournalError
 from app.analysis.forward_performance import PerformanceReportError, build_performance_report
+from app.analysis.portfolio_comovement import analyze_historical_comovement, unavailable_review
 from app.api.scanner import _MANAGER
+from app.core.config import Settings
 from app.market_data.history_audit import CalendarError
+from app.market_data.history_client import AlpacaHistoryClient, HistoricalDataError
 
 router = APIRouter(prefix="/api/research", tags=["Read-only investment research"])
 
@@ -86,6 +89,7 @@ class BudgetRequest(BaseModel):
     allow_experimental_stocks: bool = False
     horizon: Literal["short", "medium", "long"] = "long"
     max_loss_usd: Decimal | None = None
+    require_historical_comovement: bool = False
 
     @field_validator("max_loss_usd")
     @classmethod
@@ -153,6 +157,12 @@ def budget_plan(request: BudgetRequest) -> dict[str, Any]:
         candidates=current.candidates,
         now=now,
     )
+    source_data: dict[str, Any] = {
+        "scan_state": current.state,
+        "scan_completed_at": current.completed_at,
+        "scan_latest_session": current.latest_session,
+        "candidates": current.candidates,
+    }
     result["source_kind"] = "website_scan" if result["scan_usable_for_ideas"] else None
     if request.allow_experimental_stocks and not result["scan_usable_for_ideas"]:
         try:
@@ -173,7 +183,49 @@ def budget_plan(request: BudgetRequest) -> dict[str, Any]:
                 candidates=saved["candidates"],
                 now=now,
             )
+            source_data = {
+                "scan_state": "complete",
+                "scan_completed_at": saved["recorded_at_utc"],
+                "scan_latest_session": saved["signal_session"],
+                "candidates": saved["candidates"],
+            }
             result["source_kind"] = (
                 "frozen_checkpoint" if result["scan_usable_for_ideas"] else None
             )
+    if request.require_historical_comovement and request.allow_experimental_stocks:
+        # First build the standard, *pure* quality-screened example. The bounded
+        # provider query is allowed ONLY for up to two already-qualified stocks.
+        stock_rows = [row for row in result["allocation"]
+                      if row["category"] == "experimental_stock_idea"]
+        symbol_amounts = {row["symbol"]: Decimal(row["amount_usd"])
+                          for row in stock_rows}
+        if symbol_amounts and result["source_session"] is not None:
+            try:
+                comovement = analyze_historical_comovement(
+                    AlpacaHistoryClient(Settings()),
+                    signal_session=date.fromisoformat(result["source_session"]),
+                    stock_amounts_usd=symbol_amounts,
+                    core_amount_usd=Decimal(result["allocation"][0]["amount_usd"]),
+                    budget_usd=request.budget_usd,
+                )
+            except (HistoricalDataError, OSError, ValueError, ArithmeticError):
+                # Never substitute guessed correlations or leak provider errors.
+                comovement = unavailable_review(list(symbol_amounts))
+        else:
+            comovement = unavailable_review([])
+        source_kind = result["source_kind"]
+        result = make_budget_plan(
+            request.budget_usd, request.style,
+            allow_experimental_stocks=request.allow_experimental_stocks,
+            horizon=request.horizon,
+            max_loss_usd=request.max_loss_usd,
+            require_historical_comovement=True,
+            comovement_review=comovement,
+            scan_state=source_data["scan_state"],
+            scan_completed_at=source_data["scan_completed_at"],
+            scan_latest_session=source_data["scan_latest_session"],
+            candidates=source_data["candidates"],
+            now=now,
+        )
+        result["source_kind"] = source_kind
     return result

@@ -62,7 +62,24 @@ export interface QualityReview {
   caveat: string
 }
 
+export interface ComovementReview {
+  version: string
+  status: 'checked' | 'insufficient_history' | 'unavailable' | 'not_applicable'
+  requested_symbols: string[]
+  approved_symbols: string[]
+  excluded: { symbol: string; reason: string }[]
+  matched_sessions: number
+  pairwise_correlations: { symbol_a: string; symbol_b: string; correlation: number; paired_returns: number }[]
+  spy_correlations: { symbol: string; correlation: number; paired_returns: number }[]
+  portfolio_annualized_historical_volatility_pct: number | null
+  portfolio_historical_max_drawdown_pct: number | null
+  threshold_positive_correlation: number
+  caveat: string
+}
+
 export interface BudgetPlan {
+  historical_comovement_required?: boolean
+  comovement_review?: ComovementReview | null
   budget_usd: string
   style: PlanStyle
   horizon: InvestmentHorizon
@@ -92,6 +109,7 @@ export async function getResearchOverview(): Promise<ResearchOverviewResponse> {
 export async function calculateBudgetPlan(
   budget: string, style: PlanStyle, experimental: boolean,
   horizon: InvestmentHorizon = 'long', maxLoss: string | null = null,
+  requireHistoricalComovement = false,
 ): Promise<BudgetPlan> {
   const response = await fetch('/api/research/budget-plan', {
     method: 'POST',
@@ -102,6 +120,7 @@ export async function calculateBudgetPlan(
       allow_experimental_stocks: experimental,
       horizon,
       max_loss_usd: maxLoss,
+      ...(requireHistoricalComovement ? { require_historical_comovement: true } : {}),
     }),
   })
   if (!response.ok) throw new Error('Could not calculate the budget scenario. Check your amount and try again.')
