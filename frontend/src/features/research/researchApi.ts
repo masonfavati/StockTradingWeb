@@ -35,6 +35,7 @@ export interface ResearchOverviewResponse {
 }
 
 export type PlanStyle = 'cautious' | 'balanced' | 'growth'
+export type InvestmentHorizon = 'short' | 'medium' | 'long'
 export interface BudgetSlice {
   category: 'diversified_core_example' | 'experimental_stock_idea' | 'cash'
   symbol: string | null
@@ -48,6 +49,12 @@ export interface BudgetSlice {
 export interface BudgetPlan {
   budget_usd: string
   style: PlanStyle
+  horizon: InvestmentHorizon
+  max_loss_usd: string | null
+  modeled_risky_principal_usd: string
+  loss_cap_binding: boolean
+  planning_explanations: string[]
+  stress_scenarios: { decline_percent: number; loss_usd: string; remaining_budget_usd: string }[]
   experimental_opt_in: boolean
   scan_usable_for_ideas: boolean
   source_session: string | null
@@ -67,6 +74,7 @@ export async function getResearchOverview(): Promise<ResearchOverviewResponse> {
 
 export async function calculateBudgetPlan(
   budget: string, style: PlanStyle, experimental: boolean,
+  horizon: InvestmentHorizon = 'long', maxLoss: string | null = null,
 ): Promise<BudgetPlan> {
   const response = await fetch('/api/research/budget-plan', {
     method: 'POST',
@@ -75,6 +83,8 @@ export async function calculateBudgetPlan(
       budget_usd: budget,
       style,
       allow_experimental_stocks: experimental,
+      horizon,
+      max_loss_usd: maxLoss,
     }),
   })
   if (!response.ok) throw new Error('Could not calculate the budget scenario. Check your amount and try again.')

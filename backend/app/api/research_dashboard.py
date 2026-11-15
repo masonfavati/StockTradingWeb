@@ -11,7 +11,12 @@ from typing import Any, Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, field_validator
 
-from app.analysis.budget_planner import BudgetPlanError, make_budget_plan, validate_budget
+from app.analysis.budget_planner import (
+    BudgetPlanError,
+    make_budget_plan,
+    validate_budget,
+    validate_max_loss,
+)
 from app.analysis.forward_evaluation import ForwardEvaluationError
 from app.analysis.forward_journal import JournalError, entries
 from app.analysis.forward_outcomes import OutcomeJournalError
@@ -79,6 +84,18 @@ class BudgetRequest(BaseModel):
     budget_usd: Decimal
     style: Literal["cautious", "balanced", "growth"] = "balanced"
     allow_experimental_stocks: bool = False
+    horizon: Literal["short", "medium", "long"] = "long"
+    max_loss_usd: Decimal | None = None
+
+    @field_validator("max_loss_usd")
+    @classmethod
+    def check_loss_value(cls, value: Decimal | None) -> Decimal | None:
+        if value is not None:
+            try:
+                validate_max_loss(value, Decimal("1000000.00"))
+            except BudgetPlanError as exc:
+                raise ValueError(str(exc)) from exc
+        return value
 
     @field_validator("budget_usd")
     @classmethod
@@ -120,10 +137,16 @@ def budget_plan(request: BudgetRequest) -> dict[str, Any]:
     """Only registered research or an in-memory completed scan; no new scan/trade."""
     current = _MANAGER.snapshot()
     now = datetime.now(UTC)
+    try:
+        validate_max_loss(request.max_loss_usd, request.budget_usd)
+    except BudgetPlanError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     result = make_budget_plan(
         request.budget_usd,
         request.style,
         allow_experimental_stocks=request.allow_experimental_stocks,
+        horizon=request.horizon,
+        max_loss_usd=request.max_loss_usd,
         scan_state=current.state,
         scan_completed_at=current.completed_at,
         scan_latest_session=current.latest_session,
@@ -142,6 +165,8 @@ def budget_plan(request: BudgetRequest) -> dict[str, Any]:
             result = make_budget_plan(
                 request.budget_usd, request.style,
                 allow_experimental_stocks=True,
+                horizon=request.horizon,
+                max_loss_usd=request.max_loss_usd,
                 scan_state="complete",
                 scan_completed_at=saved["recorded_at_utc"],
                 scan_latest_session=saved["signal_session"],
