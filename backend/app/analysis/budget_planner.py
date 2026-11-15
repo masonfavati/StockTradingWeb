@@ -77,6 +77,8 @@ def make_budget_plan(
     scan_completed_at: str | None,
     scan_latest_session: str | None,
     candidates: Sequence[Mapping[str, Any]],
+    require_historical_comovement: bool = False,
+    comovement_review: Mapping[str, Any] | None = None,
     now: datetime | None = None,
 ) -> dict[str, Any]:
     """Return illustrative dollar slices, with remaining pennies assigned to cash."""
@@ -88,6 +90,8 @@ def make_budget_plan(
     loss_cap = validate_max_loss(max_loss_usd, amount)
     if type(allow_experimental_stocks) is not bool:
         raise BudgetPlanError("Experimental opt-in must be a boolean")
+    if type(require_historical_comovement) is not bool:
+        raise BudgetPlanError("Co-movement opt-in must be a boolean")
     current = now or datetime.now(UTC)
     if current.utcoffset() is None:
         raise BudgetPlanError("Current time must be timezone-aware")
@@ -123,6 +127,18 @@ def make_budget_plan(
         candidates if checked else [], scan_latest_session if checked else None,
     )
     quality_review["applied"] = checked
+    if require_historical_comovement and allow_experimental_stocks:
+        # Only *server-supplied* aligned evidence may authorize stock dollars.
+        # If the comparison cannot be performed, all experimental dollars stay cash.
+        approved = set()
+        if comovement_review is not None and comovement_review.get("status") == "checked":
+            reviewed = comovement_review.get("approved_symbols")
+            if isinstance(reviewed, list) and all(isinstance(s, str) for s in reviewed):
+                approved = set(reviewed)
+        initially_eligible = len(choices)
+        choices = [row for row in choices if row["symbol"] in approved]
+        quality_review["selected_count"] = len(choices)
+        quality_review["correlation_gated_count"] = initially_eligible - len(choices)
     allocations: list[dict[str, Any]] = [
         {
             "category": "diversified_core_example",
@@ -138,7 +154,14 @@ def make_budget_plan(
     stock_spent = 0
     if choices:
         per_stock_limit = cents * MAX_SINGLE_STOCK_PCT // 100
-        per_stock = min(per_stock_limit, satellite_cents // len(choices))
+        # An evidence-rejected stock's slice stays as cash. Never increase the
+        # survivors' weights after the historical portfolio review was computed.
+        denominator = len(choices)
+        if require_historical_comovement and comovement_review is not None:
+            requested = comovement_review.get("requested_symbols")
+            if isinstance(requested, list) and 1 <= len(requested) <= 2:
+                denominator = len(requested)
+        per_stock = min(per_stock_limit, satellite_cents // denominator)
         for candidate in choices:
             if per_stock < 1:
                 break
@@ -199,14 +222,14 @@ def make_budget_plan(
         )
     if allow_experimental_stocks and satellite_cents > 0 and not choices:
         explanations.append(
-            "No current, quality-screened individual-stock ideas; the optional slice "
-            "remains cash instead of being forced into a ticker."
+            "No currently eligible individual-stock ideas with the requested evidence; "
+            "the optional slice remains cash instead of being forced into a ticker."
         )
     elif allow_experimental_stocks and choices:
         explanations.append(
             "Optional stock ideas passed conservative historical price, approximate "
             "dollar-volume, volatility and drawdown screens; this does NOT show "
-            "that returns are predictable or the holdings are uncorrelated."
+            "that returns are predictable or correlations will stay constant."
         )
     elif not allow_experimental_stocks:
         explanations.append("Individual-stock ideas remain off until explicitly enabled.")
@@ -235,6 +258,8 @@ def make_budget_plan(
         "stress_scenarios": stress_scenarios,
         "experimental_opt_in": allow_experimental_stocks,
         "quality_review": quality_review,
+        "historical_comovement_required": require_historical_comovement and allow_experimental_stocks,
+        "comovement_review": dict(comovement_review) if require_historical_comovement and comovement_review is not None else None,
         "scan_usable_for_ideas": recent,
         "source_session": scan_latest_session if recent else None,
         "allocation": allocations,
@@ -245,7 +270,8 @@ def make_budget_plan(
             "This is a budget scenario, not advice about what you personally should buy.",
             "SPY is an example diversified ETF, not a price-checked or personalized recommendation.",
             "Individual stock ideas use name-only and historical quality screens, not verified security classes, issuer identities or validated return forecasts.",
-            "A diversified ETF and two different tickers do not prove industry diversification or low correlation.",
+            "Ticker and issuer-name checks do not prove industry diversification or legally verified security identity.",
+            "Historical correlations can change rapidly; they are not predictions or an independent safety guarantee.",
             "Fractional shares use past adjusted closes, NOT executable quotes. Actual shares, orders, fees and fractional-trading support may differ.",
             "A 30% market drop is a stress example, not the worst possible loss or a forecast.",
             "Risk-dollar cap is a long-only exposure limit, not a calculated probability of loss or downside guarantee.",

@@ -30,6 +30,7 @@ export default function BudgetPlannerPage() {
   const [horizon, setHorizon] = useState<InvestmentHorizon>('long')
   const [maxLoss, setMaxLoss] = useState('')
   const [experimental, setExperimental] = useState(false)
+  const [requireComovement, setRequireComovement] = useState(true)
   const [plan, setPlan] = useState<BudgetPlan | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -57,7 +58,7 @@ export default function BudgetPlannerPage() {
     }
     setPending(true)
     try {
-      const calculated = await calculateBudgetPlan(budget, style, experimental, horizon, maxLoss || null)
+      const calculated = await calculateBudgetPlan(budget, style, experimental, horizon, maxLoss || null, experimental && requireComovement)
       if (requestSerial.current === serial) setPlan(calculated)
     } catch (caught) {
       if (requestSerial.current === serial) {
@@ -129,6 +130,14 @@ export default function BudgetPlannerPage() {
         <span>Include experimental individual-stock ideas from a recent completed scanner run.
           Each stock is limited to 10% of the budget. These are not verified common shares or buy recommendations.</span>
       </label>
+      {experimental && <label className="flex items-start gap-3 text-sm text-slate-200 sm:col-span-2">
+        <input type="checkbox" className="mt-1 accent-emerald-500" checked={requireComovement}
+          aria-label="Require historical co-movement evidence"
+          onChange={(event) => { setRequireComovement(event.target.checked); invalidatePlan() }} />
+        <span>Require a 61-session historical co-movement review before allocating to individual stocks.
+          Reject unusually correlated stock pairs; if the price evidence is missing or unavailable, keep those dollars in cash.
+          This makes one small Alpaca historical-data request when eligible stocks exist.</span>
+      </label>}
       <div className="sm:col-span-2">
         <button type="submit" disabled={pending}
           className="rounded-lg bg-emerald-600 px-5 py-3 font-semibold text-white hover:bg-emerald-500 disabled:opacity-50">
@@ -189,6 +198,38 @@ export default function BudgetPlannerPage() {
             the historical shortlist was not recent enough, or the risk budget was too small.
           </p>}
         </div>}
+        {plan.experimental_opt_in && plan.historical_comovement_required && plan.comovement_review &&
+          <div className="mt-5 rounded-xl border border-slate-700 bg-slate-950 p-4">
+            <h3 className="font-semibold">Historical co-movement and portfolio risk</h3>
+            <p className="mt-2 text-sm text-slate-300">
+              Evidence status: {plan.comovement_review.status.replace(/_/g, ' ')}.
+              {' '}Approved {plan.comovement_review.approved_symbols.length} experimental stock(s).
+              {' '}We require {plan.comovement_review.matched_sessions} common adjusted-price sessions.
+            </p>
+            {plan.comovement_review.spy_correlations.length > 0 && <p className="mt-2 text-sm text-slate-300">
+              Co-movement with SPY (daily returns):{' '}
+              {plan.comovement_review.spy_correlations.map(item =>
+                `${item.symbol}: ${item.correlation.toFixed(2)}`).join('; ')}.
+            </p>}
+            {plan.comovement_review.pairwise_correlations.length > 0 && <p className="mt-2 text-sm text-slate-300">
+              Stock-pair correlations:{' '}
+              {plan.comovement_review.pairwise_correlations.map(item =>
+                `${item.symbol_a}/${item.symbol_b}: ${item.correlation.toFixed(2)}`).join('; ')}.
+              Pairs with correlation ≥ {plan.comovement_review.threshold_positive_correlation.toFixed(2)} are not both allocated.
+            </p>}
+            {plan.comovement_review.excluded.length > 0 && <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-amber-200">
+              {plan.comovement_review.excluded.map(item => <li key={item.symbol}>
+                {item.symbol}: {item.reason.replace(/_/g, ' ')}; its proposed money stays in cash.
+              </li>)}
+            </ul>}
+            {plan.comovement_review.portfolio_annualized_historical_volatility_pct !== null && <p className="mt-3 text-sm text-slate-300">
+              Retrospective example portfolio annualized volatility:{' '}
+              {plan.comovement_review.portfolio_annualized_historical_volatility_pct.toFixed(2)}%.
+              {' '}Observed 60-session example portfolio drawdown:{' '}
+              {plan.comovement_review.portfolio_historical_max_drawdown_pct?.toFixed(2) ?? 'unavailable'}%.
+            </p>}
+            <p className="mt-3 text-xs text-amber-200">{plan.comovement_review.caveat}</p>
+          </div>}
         <div className="mt-5 space-y-3">
           {plan.allocation.map((item, index) => (
             <article key={`${item.symbol ?? 'cash'}-${index}`} className="rounded-xl border border-slate-700 bg-slate-950 p-4">

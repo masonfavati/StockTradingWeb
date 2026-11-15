@@ -151,4 +151,56 @@ describe('BudgetPlannerPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show budget example' }))
     await waitFor(() => expect(screen.getByText(/No quality screening was applied/)).toBeTruthy())
   })
+  it('asks for strict historical co-movement evidence only when experimental stocks are enabled', async () => {
+    render(<MemoryRouter><BudgetPlannerPage /></MemoryRouter>)
+    fireEvent.click(screen.getByRole('button', { name: 'Show budget example' }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    let [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(JSON.parse(init.body as string).require_historical_comovement).toBeUndefined()
+    fireEvent.click(screen.getByRole('checkbox'))
+    expect(screen.getByLabelText('Require historical co-movement evidence')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Show budget example' }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    const [, secondInit] = fetchMock.mock.calls[1] as [string, RequestInit]
+    expect(JSON.parse(secondInit.body as string).require_historical_comovement).toBe(true)
+  })
+
+  it('turning off the evidence requirement clears the old allocation', async () => {
+    render(<MemoryRouter><BudgetPlannerPage /></MemoryRouter>)
+    fireEvent.click(screen.getByRole('checkbox'))
+    fireEvent.click(screen.getByRole('button', { name: 'Show budget example' }))
+    await waitFor(() => expect(screen.getByText('Why these amounts?')).toBeTruthy())
+    fireEvent.click(screen.getByLabelText('Require historical co-movement evidence'))
+    expect(screen.queryByText('Why these amounts?')).toBeNull()
+  })
+
+  it('explains rejected stock pairs and retrospective portfolio risk', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({
+      ...sample,
+      experimental_opt_in: true,
+      historical_comovement_required: true,
+      comovement_review: {
+        version: 'adjusted-return-comovement-v1', status: 'checked',
+        requested_symbols: ['AAA', 'BBB'], approved_symbols: ['AAA'],
+        excluded: [{ symbol: 'BBB', reason: 'high_positive_correlation' }],
+        matched_sessions: 61, pairwise_correlations: [
+          { symbol_a: 'AAA', symbol_b: 'BBB', correlation: 0.94, paired_returns: 60 },
+        ],
+        spy_correlations: [{ symbol: 'AAA', correlation: 0.75, paired_returns: 60 }],
+        portfolio_annualized_historical_volatility_pct: 15.4,
+        portfolio_historical_max_drawdown_pct: -7.2,
+        threshold_positive_correlation: 0.8,
+        caveat: 'Not a validated portfolio strategy.',
+      },
+    }) })
+    render(<MemoryRouter><BudgetPlannerPage /></MemoryRouter>)
+    fireEvent.click(screen.getByRole('checkbox'))
+    fireEvent.click(screen.getByRole('button', { name: 'Show budget example' }))
+    await waitFor(() => expect(screen.getByText('Historical co-movement and portfolio risk')).toBeTruthy())
+    expect(screen.getByText(/AAA\/BBB: 0.94/)).toBeTruthy()
+    expect(screen.getByText(/BBB: high positive correlation/)).toBeTruthy()
+    expect(screen.getByText(/15.40%/)).toBeTruthy()
+    expect(screen.getByText('Not a validated portfolio strategy.')).toBeTruthy()
+  })
+
 })
