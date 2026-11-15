@@ -203,4 +203,50 @@ describe('BudgetPlannerPage', () => {
     expect(screen.getByText('Not a validated portfolio strategy.')).toBeTruthy()
   })
 
+
+  it('enables SEC evidence only when the experimental opt-in is on', async () => {
+    render(<MemoryRouter><BudgetPlannerPage /></MemoryRouter>)
+    expect(screen.queryByLabelText('Require SEC filer cross-reference')).toBeNull()
+    fireEvent.click(screen.getByRole('checkbox'))
+    fireEvent.click(screen.getByLabelText('Require SEC filer cross-reference'))
+    fireEvent.click(screen.getByRole('button', { name: 'Show budget example' }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(JSON.parse(init.body as string).require_sec_identity).toBe(true)
+  })
+
+  it('clears a former result when SEC identity evidence is toggled', async () => {
+    render(<MemoryRouter><BudgetPlannerPage /></MemoryRouter>)
+    fireEvent.click(screen.getByRole('checkbox'))
+    fireEvent.click(screen.getByRole('button', { name: 'Show budget example' }))
+    await waitFor(() => expect(screen.getByText('Why these amounts?')).toBeTruthy())
+    fireEvent.click(screen.getByLabelText('Require SEC filer cross-reference'))
+    expect(screen.queryByText('Why these amounts?')).toBeNull()
+  })
+
+  it('explains verified filer identity and evidence limits', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({
+      ...sample,
+      experimental_opt_in: true,
+      sec_identity_required: true,
+      sec_identity_review: {
+        version: 'sec-ticker-crossref-v1', status: 'checked',
+        requested_symbols: ['AAA', 'BBB'], approved_symbols: ['AAA'],
+        imported_at_utc: '2026-11-15T02:00:00+00:00',
+        source_url: 'https://www.sec.gov/files/company_tickers_exchange.json',
+        source_sha256: 'abc',
+        matches: [{ symbol: 'AAA', cik: '0000001001', sec_filer_name: 'ALPHA INC', sec_exchange: 'Nasdaq' }],
+        excluded: [{ symbol: 'BBB', reason: 'sec_ticker_not_found' }],
+        caveat: 'Not verified common shares, sector classification, or return forecasts.',
+      },
+    }) })
+    render(<MemoryRouter><BudgetPlannerPage /></MemoryRouter>)
+    fireEvent.click(screen.getByRole('checkbox'))
+    fireEvent.click(screen.getByRole('button', { name: 'Show budget example' }))
+    await waitFor(() => expect(screen.getByText('SEC ticker-to-filer cross-reference')).toBeTruthy())
+    expect(screen.getByText(/AAA: SEC filer ALPHA INC/)).toBeTruthy()
+    expect(screen.getByText(/BBB: sec ticker not found/)).toBeTruthy()
+    expect(screen.getByText('Not verified common shares, sector classification, or return forecasts.')).toBeTruthy()
+  })
+
 })

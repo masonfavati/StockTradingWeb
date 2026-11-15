@@ -26,6 +26,11 @@ from app.api.scanner import _MANAGER
 from app.core.config import Settings
 from app.market_data.history_audit import CalendarError
 from app.market_data.history_client import AlpacaHistoryClient, HistoricalDataError
+from app.market_data.sec_identity import (
+    SecIdentityError,
+    load_reference,
+    review_sec_identity,
+)
 
 router = APIRouter(prefix="/api/research", tags=["Read-only investment research"])
 
@@ -90,6 +95,7 @@ class BudgetRequest(BaseModel):
     horizon: Literal["short", "medium", "long"] = "long"
     max_loss_usd: Decimal | None = None
     require_historical_comovement: bool = False
+    require_sec_identity: bool = False
 
     @field_validator("max_loss_usd")
     @classmethod
@@ -192,6 +198,32 @@ def budget_plan(request: BudgetRequest) -> dict[str, Any]:
             result["source_kind"] = (
                 "frozen_checkpoint" if result["scan_usable_for_ideas"] else None
             )
+    sec_review: dict[str, Any] | None = None
+    if request.require_sec_identity and request.allow_experimental_stocks:
+        proposed = [row["symbol"] for row in result["allocation"]
+                    if row["category"] == "experimental_stock_idea"]
+        try:
+            reference = load_reference(_research_root())
+        except (OSError, SecIdentityError):
+            # Corrupt, inaccessible, or missing reference cannot authorize
+            # experimental allocations; never use guessed filer identities.
+            reference = None
+        sec_review = review_sec_identity(proposed, reference, now=now)
+        original_kind = result["source_kind"]
+        result = make_budget_plan(
+            request.budget_usd, request.style,
+            allow_experimental_stocks=request.allow_experimental_stocks,
+            horizon=request.horizon,
+            max_loss_usd=request.max_loss_usd,
+            require_sec_identity=True,
+            sec_identity_review=sec_review,
+            scan_state=source_data["scan_state"],
+            scan_completed_at=source_data["scan_completed_at"],
+            scan_latest_session=source_data["scan_latest_session"],
+            candidates=source_data["candidates"],
+            now=now,
+        )
+        result["source_kind"] = original_kind
     if request.require_historical_comovement and request.allow_experimental_stocks:
         # First build the standard, *pure* quality-screened example. The bounded
         # provider query is allowed ONLY for up to two already-qualified stocks.
@@ -221,6 +253,8 @@ def budget_plan(request: BudgetRequest) -> dict[str, Any]:
             max_loss_usd=request.max_loss_usd,
             require_historical_comovement=True,
             comovement_review=comovement,
+            require_sec_identity=request.require_sec_identity,
+            sec_identity_review=sec_review,
             scan_state=source_data["scan_state"],
             scan_completed_at=source_data["scan_completed_at"],
             scan_latest_session=source_data["scan_latest_session"],
