@@ -2,11 +2,14 @@ import { NavLink, Route, Routes } from 'react-router'
 import MarketPanel from './features/market/MarketPanel'
 import WatchlistPage from './features/watchlist/WatchlistPage'
 import ScannerPage from './features/scanner/ScannerPage'
+import BudgetPlannerPage from './features/research/BudgetPlannerPage'
+import ResearchOverview from './features/research/ResearchOverview'
 
 const navigation = [
   { path: '/', label: 'Dashboard' },
   { path: '/watchlist', label: "Stocks I'm Following" },
   { path: '/scanner', label: 'Find Opportunities' },
+  { path: '/planner', label: 'Investment Planner' },
   { path: '/portfolio', label: 'Portfolio' },
   { path: '/forecasts', label: 'Forecast Lab' },
 ]
@@ -39,6 +42,7 @@ function DashboardPage() {
         <h1 className="text-3xl font-bold">Dashboard</h1>
         <p className="mt-2 text-slate-400">Monitor incoming market data and its reliability.</p>
       </div>
+      <ResearchOverview />
       <MarketPanel />
     </div>
   )
@@ -76,6 +80,7 @@ export default function App() {
           <Route path="/" element={<DashboardPage />} />
           <Route path="/watchlist" element={<WatchlistPage />} />
           <Route path="/scanner" element={<ScannerPage />} />
+          <Route path="/planner" element={<BudgetPlannerPage />} />
           <Route path="/portfolio" element={<PlaceholderPage title="Portfolio"
             description="Track positions, transactions, gains, and portfolio risk." />} />
           <Route path="/forecasts" element={<PlaceholderPage title="Forecast Lab"
