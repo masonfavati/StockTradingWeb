@@ -32,6 +32,7 @@ export default function BudgetPlannerPage() {
   const [experimental, setExperimental] = useState(false)
   const [requireComovement, setRequireComovement] = useState(true)
   const [requireSecIdentity, setRequireSecIdentity] = useState(false)
+  const [requireSecIndustry, setRequireSecIndustry] = useState(false)
   const [plan, setPlan] = useState<BudgetPlan | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -62,6 +63,7 @@ export default function BudgetPlannerPage() {
       const calculated = await calculateBudgetPlan(
         budget, style, experimental, horizon, maxLoss || null,
         experimental && requireComovement, experimental && requireSecIdentity,
+        experimental && requireSecIndustry,
       )
       if (requestSerial.current === serial) setPlan(calculated)
     } catch (caught) {
@@ -135,12 +137,22 @@ export default function BudgetPlannerPage() {
           Each stock is limited to 10% of the budget. These are not verified common shares or buy recommendations.</span>
       </label>
       {experimental && <label className="flex items-start gap-3 text-sm text-slate-200 sm:col-span-2">
-        <input type="checkbox" className="mt-1 accent-emerald-500" checked={requireSecIdentity}
+        <input type="checkbox" className="mt-1 accent-emerald-500" checked={requireSecIdentity || requireSecIndustry}
+          disabled={requireSecIndustry}
           aria-label="Require SEC filer cross-reference"
           onChange={(event) => { setRequireSecIdentity(event.target.checked); invalidatePlan() }} />
         <span>Require an SEC ticker-to-filer CIK cross-reference for experimental stocks.
           Missing or ambiguous matches stay in cash. First import the free SEC reference file through the backend.
           This checks registered filer identity, not whether an instrument is common stock or its industry.</span>
+      </label>}
+      {experimental && <label className="flex items-start gap-3 text-sm text-slate-200 sm:col-span-2">
+        <input type="checkbox" className="mt-1 accent-emerald-500" checked={requireSecIndustry}
+          aria-label="Require SEC SIC industry evidence"
+          onChange={(event) => { setRequireSecIndustry(event.target.checked); invalidatePlan() }} />
+        <span>Require current SEC-reported SIC industry evidence for experimental stocks.
+          This also requires the SEC filer cross-reference. Proposed stocks with the same reported SIC
+          are not both allocated; missing or stale classifications stay in cash. Import the official
+          SEC submissions ZIP locally first. SIC is not a verified market sector or business-segment analysis.</span>
       </label>}
       {experimental && <label className="flex items-start gap-3 text-sm text-slate-200 sm:col-span-2">
         <input type="checkbox" className="mt-1 accent-emerald-500" checked={requireComovement}
@@ -233,6 +245,32 @@ export default function BudgetPlannerPage() {
             <a className="mt-2 inline-block text-sm text-emerald-400 underline" target="_blank"
               rel="noopener noreferrer" href="https://www.sec.gov/file/company-tickers-exchange">
               SEC official ticker-reference source
+            </a>
+          </div>}
+        {plan.experimental_opt_in && plan.sec_industry_required && plan.sec_industry_review &&
+          <div className="mt-5 rounded-xl border border-slate-700 bg-slate-950 p-4">
+            <h3 className="font-semibold">SEC-reported SIC industry evidence</h3>
+            <p className="mt-2 text-sm text-slate-300">
+              Status: {plan.sec_industry_review.status}; approved {plan.sec_industry_review.approved_symbols.length}
+              {' '}of {plan.sec_industry_review.requested_symbols.length} proposed stock(s).
+              {plan.sec_industry_review.imported_at_utc &&
+                ` Metadata imported ${plan.sec_industry_review.imported_at_utc}.`}
+            </p>
+            {plan.sec_industry_review.matches.length > 0 && <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-300">
+              {plan.sec_industry_review.matches.map(item => <li key={item.symbol}>
+                {item.symbol}: SEC SIC {item.sic} — {item.sic_description} (CIK {item.cik}).
+              </li>)}
+            </ul>}
+            {plan.sec_industry_review.excluded.length > 0 && <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-amber-200">
+              {plan.sec_industry_review.excluded.map(item => <li key={item.symbol}>
+                {item.symbol}: {item.reason.replace(/_/g, ' ')}; proposed dollars remain cash.
+              </li>)}
+            </ul>}
+            <p className="mt-3 text-xs text-amber-200">{plan.sec_industry_review.caveat}</p>
+            <a className="mt-2 inline-block text-sm text-emerald-400 underline" target="_blank"
+              rel="noopener noreferrer"
+              href="https://www.sec.gov/search-filings/edgar-application-programming-interfaces">
+              SEC official submissions data documentation
             </a>
           </div>}
         {plan.experimental_opt_in && plan.historical_comovement_required && plan.comovement_review &&

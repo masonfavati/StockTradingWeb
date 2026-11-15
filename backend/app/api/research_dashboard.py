@@ -31,6 +31,11 @@ from app.market_data.sec_identity import (
     load_reference,
     review_sec_identity,
 )
+from app.market_data.sec_industry import (
+    SecIndustryError,
+    load_industry_reference,
+    review_sec_industry,
+)
 
 router = APIRouter(prefix="/api/research", tags=["Read-only investment research"])
 
@@ -96,6 +101,7 @@ class BudgetRequest(BaseModel):
     max_loss_usd: Decimal | None = None
     require_historical_comovement: bool = False
     require_sec_identity: bool = False
+    require_sec_industry: bool = False
 
     @field_validator("max_loss_usd")
     @classmethod
@@ -146,6 +152,7 @@ def overview() -> dict[str, Any]:
 def budget_plan(request: BudgetRequest) -> dict[str, Any]:
     """Only registered research or an in-memory completed scan; no new scan/trade."""
     current = _MANAGER.snapshot()
+    require_sec = request.require_sec_identity or request.require_sec_industry
     now = datetime.now(UTC)
     try:
         validate_max_loss(request.max_loss_usd, request.budget_usd)
@@ -199,7 +206,7 @@ def budget_plan(request: BudgetRequest) -> dict[str, Any]:
                 "frozen_checkpoint" if result["scan_usable_for_ideas"] else None
             )
     sec_review: dict[str, Any] | None = None
-    if request.require_sec_identity and request.allow_experimental_stocks:
+    if require_sec and request.allow_experimental_stocks:
         proposed = [row["symbol"] for row in result["allocation"]
                     if row["category"] == "experimental_stock_idea"]
         try:
@@ -224,6 +231,36 @@ def budget_plan(request: BudgetRequest) -> dict[str, Any]:
             now=now,
         )
         result["source_kind"] = original_kind
+    industry_review: dict[str, Any] | None = None
+    if request.require_sec_industry and request.allow_experimental_stocks:
+        # The locally imported SEC SIC reference must be pinned to the same
+        # ticker/CIK source. Failure is always cash, never inferred metadata.
+        proposed = [row["symbol"] for row in result["allocation"]
+                    if row["category"] == "experimental_stock_idea"]
+        try:
+            ticker_ref = load_reference(_research_root())
+            industry_ref = load_industry_reference(_research_root())
+        except (SecIdentityError, SecIndustryError, OSError):
+            ticker_ref = None
+            industry_ref = None
+        industry_review = review_sec_industry(proposed, ticker_ref, industry_ref, now=now)
+        source_kind = result["source_kind"]
+        result = make_budget_plan(
+            request.budget_usd, request.style,
+            allow_experimental_stocks=request.allow_experimental_stocks,
+            horizon=request.horizon,
+            max_loss_usd=request.max_loss_usd,
+            require_sec_identity=require_sec,
+            sec_identity_review=sec_review,
+            require_sec_industry=True,
+            sec_industry_review=industry_review,
+            scan_state=source_data["scan_state"],
+            scan_completed_at=source_data["scan_completed_at"],
+            scan_latest_session=source_data["scan_latest_session"],
+            candidates=source_data["candidates"],
+            now=now,
+        )
+        result["source_kind"] = source_kind
     if request.require_historical_comovement and request.allow_experimental_stocks:
         # First build the standard, *pure* quality-screened example. The bounded
         # provider query is allowed ONLY for up to two already-qualified stocks.
@@ -253,8 +290,10 @@ def budget_plan(request: BudgetRequest) -> dict[str, Any]:
             max_loss_usd=request.max_loss_usd,
             require_historical_comovement=True,
             comovement_review=comovement,
-            require_sec_identity=request.require_sec_identity,
+            require_sec_identity=require_sec,
             sec_identity_review=sec_review,
+            require_sec_industry=request.require_sec_industry,
+            sec_industry_review=industry_review,
             scan_state=source_data["scan_state"],
             scan_completed_at=source_data["scan_completed_at"],
             scan_latest_session=source_data["scan_latest_session"],

@@ -81,6 +81,8 @@ def make_budget_plan(
     comovement_review: Mapping[str, Any] | None = None,
     require_sec_identity: bool = False,
     sec_identity_review: Mapping[str, Any] | None = None,
+    require_sec_industry: bool = False,
+    sec_industry_review: Mapping[str, Any] | None = None,
     now: datetime | None = None,
 ) -> dict[str, Any]:
     """Return illustrative dollar slices, with remaining pennies assigned to cash."""
@@ -96,6 +98,8 @@ def make_budget_plan(
         raise BudgetPlanError("Co-movement opt-in must be a boolean")
     if type(require_sec_identity) is not bool:
         raise BudgetPlanError("SEC identity opt-in must be a boolean")
+    if type(require_sec_industry) is not bool:
+        raise BudgetPlanError("SEC SIC opt-in must be a boolean")
     current = now or datetime.now(UTC)
     if current.utcoffset() is None:
         raise BudgetPlanError("Current time must be timezone-aware")
@@ -143,6 +147,18 @@ def make_budget_plan(
         choices = [row for row in choices if row["symbol"] in approved_sec]
         quality_review["selected_count"] = len(choices)
         quality_review["sec_gated_count"] = before - len(choices)
+    if require_sec_industry and allow_experimental_stocks:
+        # Filer SIC evidence is additive and must not authorize a stock that the
+        # existing quality and optional SEC-filer checks already rejected.
+        approved_industry: set[str] = set()
+        if sec_industry_review is not None and sec_industry_review.get("status") == "checked":
+            verified = sec_industry_review.get("approved_symbols")
+            if isinstance(verified, list) and all(isinstance(row, str) for row in verified):
+                approved_industry = set(verified)
+        prior = len(choices)
+        choices = [row for row in choices if row["symbol"] in approved_industry]
+        quality_review["selected_count"] = len(choices)
+        quality_review["industry_gated_count"] = prior - len(choices)
     if require_historical_comovement and allow_experimental_stocks:
         # Only *server-supplied* aligned evidence may authorize stock dollars.
         # If the comparison cannot be performed, all experimental dollars stay cash.
@@ -177,6 +193,10 @@ def make_budget_plan(
             proposed = sec_identity_review.get("requested_symbols")
             if isinstance(proposed, list) and 1 <= len(proposed) <= 2:
                 denominator = max(denominator, len(proposed))
+        if require_sec_industry and sec_industry_review is not None:
+            requested = sec_industry_review.get("requested_symbols")
+            if isinstance(requested, list) and 1 <= len(requested) <= 2:
+                denominator = max(denominator, len(requested))
         if require_historical_comovement and comovement_review is not None:
             requested = comovement_review.get("requested_symbols")
             if isinstance(requested, list) and 1 <= len(requested) <= 2:
@@ -282,6 +302,8 @@ def make_budget_plan(
         "comovement_review": dict(comovement_review) if require_historical_comovement and comovement_review is not None else None,
         "sec_identity_required": require_sec_identity and allow_experimental_stocks,
         "sec_identity_review": dict(sec_identity_review) if require_sec_identity and allow_experimental_stocks and sec_identity_review is not None else None,
+        "sec_industry_required": require_sec_industry and allow_experimental_stocks,
+        "sec_industry_review": dict(sec_industry_review) if require_sec_industry and allow_experimental_stocks and sec_industry_review is not None else None,
         "scan_usable_for_ideas": recent,
         "source_session": scan_latest_session if recent else None,
         "allocation": allocations,
@@ -292,7 +314,7 @@ def make_budget_plan(
             "This is a budget scenario, not advice about what you personally should buy.",
             "SPY is an example diversified ETF, not a price-checked or personalized recommendation.",
             "Individual stock ideas use name-only and historical quality screens. Optional SEC matches identify filers, NOT verified security classes or validated return forecasts.",
-            "Ticker and issuer-name checks do not prove industry diversification or legally verified security identity.",
+            "Filer SIC codes are current SEC industry categories, not a comprehensive sector or segment-exposure model.",
             "Historical correlations can change rapidly; they are not predictions or an independent safety guarantee.",
             "Fractional shares use past adjusted closes, NOT executable quotes. Actual shares, orders, fees and fractional-trading support may differ.",
             "A 30% market drop is a stress example, not the worst possible loss or a forecast.",
