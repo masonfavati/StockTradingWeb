@@ -1,27 +1,18 @@
-StockTradingWeb — Milestone 3D.5 Cumulative Forward Performance
-==============================================================
-Apply to the current Git main branch AFTER 3D.4 has been merged.
+StockTradingWeb Milestone 3E.1 — Research Dashboard + Illustrative Investment Budget Planner
 
-Contents
-  backend/app/analysis/forward_performance.py          NEW
-  backend/app/analysis/forward_performance_cli.py      NEW
-  backend/app/analysis/forward_outcomes.py             SMALL ROUNDING FIX (replaces 3D.4 file)
-  backend/tests/test_forward_performance.py            NEW
-  docs/MILESTONE_3D5_CUMULATIVE_PERFORMANCE.md         NEW
+PATCH CONTENTS
+- backend/app/main.py (adds /api/research router)
+- backend/app/analysis/budget_planner.py (exact-cent risk-styled scenario engine)
+- backend/app/api/research_dashboard.py (verified verified journal/latest checkpoint overview + planner API)
+- backend/tests/test_budget_planner.py
+- frontend/src/App.tsx (Dashboard overview + /planner)
+- frontend/src/features/research/researchApi.ts
+- frontend/src/features/research/ResearchOverview.tsx
+- frontend/src/features/research/BudgetPlannerPage.tsx
+- frontend/src/features/research/BudgetPlannerPage.test.tsx
+- frontend/src/features/research/ResearchOverview.test.tsx
+- docs/MILESTONE_3E1_RESEARCH_DASHBOARD_AND_PLANNER.md
 
-No database migration, no scheduler install, no source checkpoint mutation.
-
-After unzipping into repository root:
-  cd backend
-  uv run pytest -q
-  uv run ruff check .
-  uv run mypy app
-  uv run alembic check
-  uv run python -m app.analysis.forward_performance_cli --dir ~/StockTradingWebResearch
-
-Optional machine JSON stdout:
-  uv run python -m app.analysis.forward_performance_cli --dir ~/StockTradingWebResearch --json
-
-The report is read-only (aside from possible calendar calls); it will not
-request outcome PRICE bars or create portfolio return data while pending.
-A single completed forward selection is NOT a validated profitable strategy.
+NO automatic trades, new external service, database migration or LaunchAgent changes.
+The planner is NOT a validated investment recommendation. See docs for research safeguards.
+Run backend and frontend quality suites before opening PR.
