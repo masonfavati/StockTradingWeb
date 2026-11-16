@@ -8,11 +8,12 @@ import logging
 import re
 from collections import defaultdict
 from collections.abc import Callable, Iterator, Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, timedelta
-from typing import Protocol
+from typing import Any, Protocol
 from zoneinfo import ZoneInfo
 
+from app.analysis.investment_quality import screen_budget_candidates
 from app.analysis.opportunities import ResearchCandidate, describe_candidate, shortlist
 from app.market_data.asset_search import SearchResult
 from app.market_data.history_client import DailyBar, HistoryAdjustment, HistoryFeed
@@ -53,6 +54,30 @@ class ScanResults:
     excluded_invalid_core_symbols: int = 0
     invalid_core_records: int = 0
     invalid_core_examples: tuple[str, ...] = ()
+    # A separate, bounded candidate set for 3K planning, screened before
+    # the public research view truncates its preliminary momentum ranking.
+    investing_candidates: list[ResearchCandidate] = field(default_factory=list)
+    investing_quality_review: dict[str, Any] = field(default_factory=dict)
+
+
+def investment_shortlist(
+    candidates: Sequence[ResearchCandidate], latest_session: str | None,
+) -> tuple[list[ResearchCandidate], dict[str, Any]]:
+    """Quality-check the full preliminary pool BEFORE selecting top results.
+
+    The scanner's regular top-20 research ranking remains unchanged. This
+    secondary list is not a prediction or a verified SEC issuer identity.
+    """
+    ranked = shortlist(candidates, limit=len(candidates)) if candidates else []
+    records = [
+        {**asdict(candidate), "last_session": candidate.last_session.isoformat()}
+        for candidate in ranked
+    ]
+    approved, review = screen_budget_candidates(
+        records, latest_session, max_selections=20,
+    )
+    approved_symbols = {row["symbol"] for row in approved}
+    return [row for row in ranked if row.symbol in approved_symbols], review
 
 
 def scan_market(
@@ -153,6 +178,7 @@ def scan_market(
             item for item in candidates
             if (max_date - item.last_session).days <= 3
         ]
+    investing_candidates, investing_review = investment_shortlist(candidates, most_recent)
     if invalid_symbols:
         logger.warning(
             "Market screening excluded %d symbol(s) with %d invalid core "
@@ -169,4 +195,6 @@ def scan_market(
         excluded_invalid_core_symbols=len(invalid_symbols),
         invalid_core_records=invalid_records,
         invalid_core_examples=tuple(invalid_examples),
+        investing_candidates=investing_candidates,
+        investing_quality_review=investing_review,
     )

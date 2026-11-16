@@ -10,7 +10,7 @@ from threading import Lock
 from typing import Any, Literal
 
 from fastapi import APIRouter, BackgroundTasks
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.analysis.market_scan import scan_market
 from app.core.config import Settings
@@ -33,6 +33,9 @@ class ScannerSnapshot(BaseModel):
     processed: int
     qualified: int
     candidates: list[dict[str, Any]]
+    # Separate quality-screened picks, not the public top-20 momentum ranking.
+    investing_candidates: list[dict[str, Any]] = Field(default_factory=list)
+    investing_quality_review: dict[str, Any] = Field(default_factory=dict)
 
 
 class ScanManager:
@@ -48,6 +51,8 @@ class ScanManager:
         self._qualified = 0
         self._latest_session: str | None = None
         self._candidates: list[dict[str, Any]] = []
+        self._investing_candidates: list[dict[str, Any]] = []
+        self._investing_quality_review: dict[str, Any] = {}
 
     def snapshot(self) -> ScannerSnapshot:
         with self._lock:
@@ -62,6 +67,8 @@ class ScanManager:
                 processed=self._processed,
                 qualified=self._qualified,
                 candidates=list(self._candidates),
+                investing_candidates=list(self._investing_candidates),
+                investing_quality_review=dict(self._investing_quality_review),
             )
 
     def begin(self, *, now: datetime) -> bool:
@@ -85,6 +92,8 @@ class ScanManager:
             self._qualified = 0
             self._latest_session = None
             self._candidates = []
+            self._investing_candidates = []
+            self._investing_quality_review = {}
             return True
 
     def progress(self, count: int, total: int) -> None:
@@ -109,6 +118,8 @@ class ScanManager:
                 self._completed_at = datetime.now(UTC)
                 self._message = f"Scan failed ({type(exc).__name__}). No ranking was published."
                 self._candidates = []
+                self._investing_candidates = []
+                self._investing_quality_review = {}
             return
 
         with self._lock:
@@ -123,6 +134,11 @@ class ScanManager:
                 {**asdict(candidate), "last_session": candidate.last_session.isoformat()}
                 for candidate in result.candidates
             ]
+            self._investing_candidates = [
+                {**asdict(candidate), "last_session": candidate.last_session.isoformat()}
+                for candidate in result.investing_candidates
+            ]
+            self._investing_quality_review = dict(result.investing_quality_review)
             self._message = (
                 "Completed-day research shortlist only. "
                 f"Excluded {result.excluded_invalid_core_symbols:,} symbol(s) "
