@@ -5,11 +5,13 @@ import ScannerPage from './features/scanner/ScannerPage'
 import BudgetPlannerPage from './features/research/BudgetPlannerPage'
 import ResearchOverview from './features/research/ResearchOverview'
 import PredictionLabPage from './features/research/PredictionLabPage'
+import DecisionDeskPage from './features/research/DecisionDeskPage'
 
 const navigation = [
   { path: '/', label: 'Dashboard' },
   { path: '/watchlist', label: "Stocks I'm Following" },
   { path: '/scanner', label: 'Find Opportunities' },
+  { path: '/decisions', label: 'Research Decision Desk' },
   { path: '/planner', label: 'Investment Planner' },
   { path: '/portfolio', label: 'Portfolio' },
   { path: '/forecasts', label: 'Forecast Lab' },
@@ -82,6 +84,7 @@ export default function App() {
           <Route path="/watchlist" element={<WatchlistPage />} />
           <Route path="/scanner" element={<ScannerPage />} />
           <Route path="/planner" element={<BudgetPlannerPage />} />
+          <Route path="/decisions" element={<DecisionDeskPage />} />
           <Route path="/portfolio" element={<PlaceholderPage title="Portfolio"
             description="Track positions, transactions, gains, and portfolio risk." />} />
           <Route path="/forecasts" element={<PredictionLabPage />} />

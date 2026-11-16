@@ -91,6 +91,9 @@ export default function ResearchOverview() {
           <Link className="mt-4 inline-block text-sm font-medium text-emerald-400 hover:underline" to="/scanner">
             Open Find Opportunities
           </Link>
+          <Link className="ml-4 mt-4 inline-block text-sm font-medium text-emerald-400 hover:underline" to="/decisions">
+            Explain the shortlist
+          </Link>
         </div>
         <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
           <h3 className="text-lg font-semibold">Evidence against SPY</h3>

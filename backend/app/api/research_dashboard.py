@@ -17,6 +17,7 @@ from app.analysis.budget_planner import (
     validate_budget,
     validate_max_loss,
 )
+from app.analysis.decision_desk import build_decision_desk
 from app.analysis.forward_evaluation import ForwardEvaluationError
 from app.analysis.forward_journal import JournalError, entries
 from app.analysis.forward_outcomes import OutcomeJournalError
@@ -156,6 +157,55 @@ def overview() -> dict[str, Any]:
         "latest_checkpoint": latest,
         "warnings": report["warnings"],
     }
+
+
+@router.get("/decision-desk")
+def decision_desk() -> dict[str, Any]:
+    """Publish bounded, provenance-aware scanner explanations without new market requests."""
+    snapshot = _MANAGER.snapshot()
+    now = datetime.now(UTC)
+    # Match the same freshness policy as the dollar planner without requiring
+    # a user budget, and prefer the pinned journal when the browser scan is old.
+    probe = make_budget_plan(
+        Decimal(100), "balanced", allow_experimental_stocks=True,
+        scan_state=snapshot.state, scan_completed_at=snapshot.completed_at,
+        scan_latest_session=snapshot.latest_session,
+        candidates=snapshot.candidates, now=now,
+    )
+    source_kind: str | None = "website_scan" if probe["scan_usable_for_ideas"] else None
+    source_session = snapshot.latest_session if source_kind else None
+    source_time = snapshot.completed_at if source_kind else None
+    shortlist: list[dict[str, Any]] = list(snapshot.candidates) if source_kind else []
+    try:
+        if source_kind is None:
+            saved = _latest_saved_checkpoint(_research_root())
+            if saved is not None:
+                source_kind = "frozen_checkpoint"
+                source_session = saved["signal_session"]
+                source_time = saved["recorded_at_utc"]
+                shortlist = saved["candidates"]
+        ticker = load_reference(_research_root())
+        sic = load_industry_reference(_research_root())
+    except (OSError, ValueError, JournalError, ForwardEvaluationError,
+            SecIdentityError, SecIndustryError) as exc:
+        # The research desk must never mix partial or unverified reference data
+        # with a purportedly complete, trustable scanner report.
+        raise HTTPException(
+            status_code=503,
+            detail=f"Research evidence unavailable ({type(exc).__name__}); no decisions published.",
+        ) from exc
+    try:
+        prediction = build_prediction_report(_research_root(), now=now)["status"]
+    except (OSError, ValueError, JournalError, ForwardEvaluationError,
+            OutcomeJournalError, PerformanceReportError, CalendarError,
+            PredictionEvidenceError):
+        prediction = "unavailable"
+    return build_decision_desk(
+        source_kind=source_kind, signal_session=source_session,
+        recorded_at_utc=source_time, candidates=shortlist,
+        ticker_reference=ticker, industry_reference=sic,
+        prediction_status=prediction, now=now,
+    )
 
 
 @router.get("/prediction-validation")
