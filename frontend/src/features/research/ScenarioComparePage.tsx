@@ -1,3 +1,4 @@
+import BeginnerHelp from '../learn/BeginnerHelp'
 import { useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { calculateBudgetPlan, type InvestmentHorizon } from './researchApi'
@@ -81,15 +82,15 @@ export default function ScenarioComparePage() {
   return <section aria-label="Budget comparison workspace" className="space-y-6">
     <header className="rounded-2xl border border-slate-800 bg-slate-900 p-7">
       <p className="text-sm font-semibold text-emerald-400">Research → Compare → Plan</p>
-      <h1 className="mt-2 text-3xl font-bold">Budget Comparison Workspace</h1>
+      <h1 className="mt-2 text-3xl font-bold">Compare ways to use your budget</h1>
       <p className="mt-3 max-w-3xl text-sm text-slate-300">
-        Compare Cautious, Balanced, and Growth-oriented budget examples using the exact same
-        amount, time horizon, affordable-loss limit, and evidence requirements.
+        See three different ways your money could be split between investments and cash.
+        Each example uses the same amount, time frame, and loss limit.
         More money invested is not automatically a better choice.
       </p>
       <p className="mt-3 text-sm text-amber-200">
-        These are illustrative allocations, not return forecasts, guaranteed loss limits,
-        live quotes, or trade instructions. Nothing here buys a security.
+        These are pretend allocations, not promises of profit or guarantees about losses,
+        today’s trade prices, or instructions to buy. Nothing here purchases a stock.
       </p>
       <div className="mt-4 flex gap-4 text-sm">
         <Link to="/decisions" className="text-emerald-300 underline">Inspect the research shortlist</Link>
@@ -125,21 +126,21 @@ export default function ScenarioComparePage() {
         Include experimental individual-stock research ideas (not buy recommendations)
       </label>
       {settings.experimental && <div className="space-y-3 rounded-xl border border-slate-700 p-4 text-sm">
-        <p className="font-semibold">Require evidence before assigning experimental dollars</p>
+        <p className="font-semibold">Extra safety checks before including individual stocks</p>
         <label className="flex gap-2"><input aria-label="Comparison SEC filer evidence" type="checkbox"
           checked={settings.secIdentity || settings.secIndustry} disabled={settings.secIndustry}
-          onChange={event => update({ secIdentity: event.target.checked })} /> SEC filer cross-reference</label>
+          onChange={event => update({ secIdentity: event.target.checked })} /> Check the company’s government filing record</label>
         <label className="flex gap-2"><input aria-label="Comparison SEC industry evidence" type="checkbox"
           checked={settings.secIndustry}
-          onChange={event => update({ secIndustry: event.target.checked, secIdentity: event.target.checked || settings.secIdentity })} /> SEC SIC industry classification</label>
+          onChange={event => update({ secIndustry: event.target.checked, secIdentity: event.target.checked || settings.secIdentity })} /> Check the company’s reported business type</label>
         <label className="flex gap-2"><input aria-label="Comparison prediction evidence" type="checkbox"
-          checked={settings.prediction} onChange={event => update({ prediction: event.target.checked })} /> Validated prospective prediction evidence</label>
+          checked={settings.prediction} onChange={event => update({ prediction: event.target.checked })} /> Require a prediction that passed real-world tests</label>
         <label className="flex gap-2"><input aria-label="Comparison historical correlation" type="checkbox"
-          checked={settings.comovement} onChange={event => update({ comovement: event.target.checked })} /> Historical co-movement evidence</label>
+          checked={settings.comovement} onChange={event => update({ comovement: event.target.checked })} /> Check whether the stocks moved together before</label>
         <p className="text-xs text-slate-400">
-          Comparison makes three independent read-only planner requests. With historical co-movement
-          enabled, qualifying stock ideas may trigger up to three bounded Alpaca history checks.
-          Turning an evidence requirement off does not make an unvalidated idea trustworthy.
+          This comparison calculates three examples, but does not buy anything.
+          Checking whether stocks moved together may require more historical price downloads.
+          Turning a safety check off does not make a stock idea trustworthy.
         </p>
       </div>}
       <button type="submit" disabled={pending} className="rounded-lg bg-emerald-700 px-5 py-3 font-semibold hover:bg-emerald-600 disabled:opacity-50">
@@ -151,7 +152,7 @@ export default function ScenarioComparePage() {
     {comparison && completedSettings && <div className="space-y-5" aria-label="Completed comparison">
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-900 p-5">
         <div>
-          <h2 className="text-xl font-semibold">Same budget, three different exposures</h2>
+          <h2 className="text-xl font-semibold">Same budget, three different approaches</h2>
           <p className="mt-1 text-xs text-slate-400">
             {formatCents(comparison.budgetCents)} total in every column · snapshot captured {comparison.capturedAtUtc}
           </p>
@@ -166,30 +167,30 @@ export default function ScenarioComparePage() {
           <div><h3 className="text-xl font-semibold">{STYLE_LABELS[plan.style]}</h3>
             <p className="mt-1 text-xs text-slate-400">Allocation illustration · {plan.horizon} horizon</p></div>
           <div className="space-y-2 text-sm">
-            <p>Illustratively invested: <strong>{formatCents(investedCents)}</strong></p>
-            <p>Retained cash: <strong>{formatCents(cashCents)}</strong></p>
+            <p>Example amount invested: <strong>{formatCents(investedCents)}</strong></p>
+            <p>Money left as cash: <strong>{formatCents(cashCents)}</strong></p>
             <div className="flex h-4 overflow-hidden rounded-lg" role="img" aria-label={`Allocation proportions for ${STYLE_LABELS[plan.style]}`}>
               {coreCents > 0 && <div className="bg-emerald-600" style={{ width: `${100 * coreCents / comparison.budgetCents}%` }} />}
               {stockCents > 0 && <div className="bg-sky-500" style={{ width: `${100 * stockCents / comparison.budgetCents}%` }} />}
               {cashCents > 0 && <div className="bg-slate-500" style={{ width: `${100 * cashCents / comparison.budgetCents}%` }} />}
             </div>
-            <p className="text-xs text-slate-400">Core ETF example {formatCents(coreCents)} · experimental {formatCents(stockCents)} · cash {formatCents(cashCents)}</p>
+            <p className="text-xs text-slate-400">Example diversified fund {formatCents(coreCents)} · individual stocks {formatCents(stockCents)} · cash {formatCents(cashCents)}</p>
           </div>
           <div className="border-t border-slate-700 pt-3 text-sm">
-            <h4 className="font-semibold">Illustrative allocations</h4>
+            <h4 className="font-semibold">Where the example money goes</h4>
             <ul className="mt-2 space-y-2">{plan.allocation.map((row, i) => <li key={`${row.category}-${row.symbol ?? i}`}>
               <div className="flex justify-between gap-2"><span>{row.name}</span><strong className="shrink-0">{row.amount_usd ? formatCents(Math.round(Number(row.amount_usd) * 100)) : 'Unavailable'}</strong></div>
               <p className="mt-1 text-xs text-slate-400">{row.reason}</p>
             </li>)}</ul>
           </div>
           <div className="border-t border-slate-700 pt-3 text-sm">
-            <p>Illustrative 30% equity decline: {stress30LossCents === null ? 'Not available' : <strong>{formatCents(stress30LossCents)} loss</strong>}</p>
-            <p className="mt-2 text-xs text-amber-200">A 30% example is not a maximum loss or a probability forecast.</p>
+            <p>If investments fell by 30%: {stress30LossCents === null ? 'Not available' : <strong>{formatCents(stress30LossCents)} loss</strong>}</p>
+            <p className="mt-2 text-xs text-amber-200">This is only a what-if example; actual losses could be greater.</p>
           </div>
           <div className="space-y-2 border-t border-slate-700 pt-3 text-xs text-slate-300">
             <p>Research source: {plan.source_kind?.replace(/_/g, ' ') ?? 'No eligible shortlist'}; session {plan.source_session ?? 'unavailable'}</p>
             {plan.prediction_required && <p>Prediction evidence: {plan.prediction_review?.status.replace(/_/g, ' ') ?? 'unavailable'}</p>}
-            <p>Affordable-loss cap binding: {plan.loss_cap_binding ? 'Yes' : 'No'}</p>
+            <p>Did your chosen loss limit reduce stock spending? {plan.loss_cap_binding ? 'Yes' : 'No'}</p>
             {plan.planning_explanations.slice(0, 2).map(text => <p key={text}>{text}</p>)}
             {plan.warnings.slice(0, 2).map(text => <p className="text-amber-200" key={text}>{text}</p>)}
           </div>
@@ -213,7 +214,9 @@ export default function ScenarioComparePage() {
         </p>
         <p className="mt-2 text-slate-300">The allocation differences reflect preset illustrative risk styles, not a model's proof that one approach will earn more. Cash is budget money deliberately left uninvested; the investment amount is only a proposal, not an executed purchase.</p>
         <p className="mt-2 text-slate-400">Open any style in the full planner to review the complete candidate-by-candidate evidence, exclusions, and downside explanations before acting. This export preserves the returned allocation amounts and reasons, but not a live market quote or an investment recommendation.</p>
-      </section>
+        <BeginnerHelp words={['stock', 'fund', 'spy', 'cash', 'loss', 'sec', 'sic', 'correlation', 'prediction']} />
+  </section>
     </div>}
+    <BeginnerHelp words={['stock', 'fund', 'spy', 'cash', 'loss', 'sec', 'sic', 'correlation', 'prediction']} />
   </section>
 }

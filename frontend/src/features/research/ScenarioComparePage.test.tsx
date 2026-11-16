@@ -53,7 +53,7 @@ describe('Budget Comparison Workspace', () => {
     expect(screen.getByLabelText('Balanced comparison')).toBeTruthy()
     expect(screen.getByLabelText('Growth-oriented comparison')).toBeTruthy()
     expect(screen.getByText(/\$100\.00 total in every column/)).toBeTruthy()
-    expect(screen.getAllByText('Retained cash:', { exact: false })).toHaveLength(3)
+    expect(screen.getAllByText('Money left as cash:', { exact: false })).toHaveLength(3)
     const bodies = fetchMock.mock.calls.map(([, init]) => JSON.parse((init as RequestInit).body as string))
     expect(bodies.map(row => row.style)).toEqual(['cautious', 'balanced', 'growth'])
     expect(bodies.every(row => row.allow_experimental_stocks === false)).toBe(true)

@@ -31,7 +31,7 @@ describe('PredictionLabPage', () => {
 
   it('shows real no-data status without fabricating model accuracy', async () => {
     render(<MemoryRouter><PredictionLabPage /></MemoryRouter>)
-    await waitFor(() => expect(screen.getByTestId('prediction-status').textContent).toMatch(/insufficient evidence/))
+    await waitFor(() => expect(screen.getByTestId('prediction-status').textContent).toMatch(/Not enough real results yet/))
     expect(fetchMock).toHaveBeenCalledWith('/api/research/prediction-validation')
     expect(screen.getAllByText('Not available').length).toBeGreaterThan(0)
     expect(screen.getByText(/Additional genuinely matured outcomes are needed/)).toBeTruthy()
@@ -47,7 +47,7 @@ describe('PredictionLabPage', () => {
     }) })
     render(<MemoryRouter><PredictionLabPage /></MemoryRouter>)
     await waitFor(() => expect(screen.getByText('0.245')).toBeTruthy())
-    expect(screen.getByText(/Overlapping test periods are correlated/)).toBeTruthy()
+    expect(screen.getByText(/Some tests overlap/)).toBeTruthy()
     expect(screen.getByText(/does not predict a future stock price/)).toBeTruthy()
   })
 

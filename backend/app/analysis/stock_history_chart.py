@@ -12,6 +12,7 @@ from decimal import Decimal
 from typing import Any, Literal, Protocol
 from zoneinfo import ZoneInfo
 
+from app.analysis.historical_insights import describe_price_history
 from app.market_data.history_client import DailyBar, HistoryAdjustment, HistoryFeed
 
 Period = Literal["1m", "3m", "1y", "5y"]
@@ -154,6 +155,10 @@ def build_stock_history(
         "first_adjusted_close_usd": round(first, 8) if first is not None else None,
         "last_adjusted_close_usd": round(last, 8) if last is not None else None,
         "period_change_pct": change_pct,
+        "historical_insights": describe_price_history(
+            [(day, stock[day]) for day in days],
+            spy_observations=[(day, spy[day]) for day in shared] if usable_benchmark else [],
+        ),
         "benchmark_requested": benchmark_requested,
         "benchmark_available": usable_benchmark,
         "benchmark_anchor_session": anchor.isoformat() if usable_benchmark and anchor else None,

@@ -1,3 +1,4 @@
+import BeginnerHelp from '../learn/BeginnerHelp'
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { displayPrice } from '../market/marketData'
@@ -51,7 +52,7 @@ function CompanyCard({
 
       <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-sm text-slate-400">Last recorded trade on IEX</p>
+          <p className="text-sm text-slate-400">Most recent reported trade from one exchange</p>
           <p className="mt-1 text-2xl font-bold text-white">
             {showTrade ? displayPrice(trade?.price) : '—'}
           </p>
@@ -202,8 +203,8 @@ export default function WatchlistPage() {
               : 'Live monitoring not currently confirmed'}
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            The free feed shows IEX trades only, not the complete U.S. market.
-            Its last trade price is not a guaranteed buying or selling price.
+            Prices here are from only one U.S. stock exchange, not every trade in the market.
+            The displayed price may not be the price you could buy or sell at.
           </p>
         </div>
 
@@ -239,6 +240,7 @@ export default function WatchlistPage() {
           {remove.error.message}
         </p>}
       </section>
+      <BeginnerHelp words={['stock', 'ticker', 'adjusted', 'risk']} />
       <p className="text-xs text-slate-500">
         This page tracks interests only. StockTradingWeb cannot yet make validated buy or sell recommendations.
       </p>

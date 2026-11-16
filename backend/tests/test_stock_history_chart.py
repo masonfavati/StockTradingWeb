@@ -51,6 +51,10 @@ def test_fetches_older_historical_closes_without_any_scan() -> None:
     assert result['period_change_pct'] == 1.98
     assert result['feed'] == 'sip' and result['adjustment'] == 'all'
     assert result['provider'] == 'alpaca'
+    assert result['historical_insights']['highest_price_usd'] == 104
+    assert result['historical_insights']['lowest_price_usd'] == 101
+    assert result['historical_insights']['largest_drop_from_previous_high_pct'] == 0.96
+    assert result['historical_insights']['average_change_between_recorded_days_pct'] > 0
     assert result['price_forecast'] is None
     assert result['forecast_status'] == 'no_validated_price_forecast'
     symbols, start, end, feed, adjustment, limit = provider.calls[0]
@@ -76,6 +80,8 @@ def test_comparison_uses_only_matching_real_sessions() -> None:
     assert [row['normalized_index'] for row in result['bars']] == [100, 109.0909]
     assert result['first_session'] == '2026-11-11'
     assert result['warning'] is not None
+    assert result['historical_insights']['spy_change_pct'] == 10
+    assert result['historical_insights']['difference_vs_spy_percentage_points'] == -0.91
 
 
 def test_missing_comparable_spy_never_uses_guessed_prices() -> None:
