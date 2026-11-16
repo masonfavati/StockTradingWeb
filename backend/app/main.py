@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 
+from app.api.investing import router as investing_router
 from app.api.market import router as market_router
 from app.api.research_dashboard import router as research_router
 from app.api.scanner import router as scanner_router
@@ -43,6 +44,7 @@ app = FastAPI(
 )
 
 app.include_router(market_router)
+app.include_router(investing_router)
 app.include_router(research_router)
 app.include_router(stock_history_router)
 app.include_router(scanner_router)

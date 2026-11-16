@@ -10,17 +10,19 @@ import ScenarioComparePage from './features/research/ScenarioComparePage'
 import StockHistoryPage from './features/history/StockHistoryPage'
 import StartHerePage from './features/learn/StartHerePage'
 import BeginnerHelp from './features/learn/BeginnerHelp'
+import InvestingHomePage from './features/investing/InvestingHomePage'
+import HoldingsPage from './features/investing/HoldingsPage'
 
 const navigation = [
+  { path: '/', label: 'Build My Investment Plan' },
+  { path: '/portfolio', label: 'My Holdings' },
   { path: '/start', label: 'Start Here' },
-  { path: '/', label: 'Home' },
   { path: '/watchlist', label: "Stocks I'm Following" },
   { path: '/scanner', label: 'Find Opportunities' },
   { path: '/decisions', label: 'Understand Stock Ideas' },
   { path: '/history', label: 'Stock Price History' },
   { path: '/planner', label: 'Plan My Budget' },
   { path: '/compare', label: 'Compare Budgets' },
-  { path: '/portfolio', label: 'Portfolio' },
   { path: '/forecasts', label: 'How Reliable Are Predictions?' },
 ]
 
@@ -67,7 +69,7 @@ export default function App() {
           <p className="text-2xl font-bold tracking-tight">
             <span className="text-emerald-400">Stock</span>TradingWeb
           </p>
-          <p className="mt-1 text-sm text-slate-400">Explore stock history and learn what the numbers mean</p>
+          <p className="mt-1 text-sm text-slate-400">See how your investment budget could be split, then track what you own</p>
         </div>
       </header>
       <nav aria-label="Primary navigation" className="border-b border-slate-800">
@@ -88,7 +90,8 @@ export default function App() {
       </nav>
       <main className="mx-auto max-w-7xl px-6 py-10">
         <Routes>
-          <Route path="/" element={<DashboardPage />} />
+          <Route path="/" element={<InvestingHomePage />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/start" element={<StartHerePage />} />
           <Route path="/watchlist" element={<WatchlistPage />} />
           <Route path="/scanner" element={<ScannerPage />} />
@@ -96,15 +99,14 @@ export default function App() {
           <Route path="/compare" element={<ScenarioComparePage />} />
           <Route path="/decisions" element={<DecisionDeskPage />} />
           <Route path="/history" element={<StockHistoryPage />} />
-          <Route path="/portfolio" element={<PlaceholderPage title="Portfolio"
-            description="Track the stocks you own and how their value changes. This page is not ready yet." />} />
+          <Route path="/portfolio" element={<HoldingsPage />} />
           <Route path="/forecasts" element={<PredictionLabPage />} />
           <Route path="*" element={<PlaceholderPage title="Page Not Found"
             description="This page does not exist." />} />
         </Routes>
       </main>
       <footer className="mx-auto max-w-7xl px-6 pb-8 text-xs text-slate-500">
-        For learning and research only. No trades are placed and no verified buy recommendations are currently available.
+        Historical model estimates are exploratory, not proven predictions or investment advice. No trades are placed. Recordings of purchases and sales are manual.
       </footer>
     </div>
   )

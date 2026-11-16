@@ -2,7 +2,7 @@
 
 A **free, local stock-market research website** that helps people explore US stocks without needing to understand trading jargon.
 
-It's a work in progress. You can follow companies, monitor limited real-time market activity, save real historical price data, and now **search Alpaca's broad active-tradable US-stock list for research candidates**. It now includes a **prospective prediction research lab**, but no model is published for investment allocations until sufficiently many real future outcomes clear predefined walk-forward checks. It cannot guarantee returns or place real-money orders.
+It's a work in progress. You can follow companies, monitor limited real-time market activity, save real historical price data, and now **search Alpaca's broad active-tradable US-stock list for research candidates**. It includes a prospective prediction research lab and a new **visual growth workspace** that explores historical-pattern forecasts and bounded, illustrative dollar allocations. The model is *not prospectively validated*; none of these estimates is a reliable buy recommendation. The site can also track manual purchases, sales, and review alerts. It cannot guarantee returns, identify the perfect sell point, or place trades.
 
 ## What can you do today?
 
@@ -14,7 +14,8 @@ It's a work in progress. You can follow companies, monitor limited real-time mar
 | Historical data | Import raw and current-adjusted daily prices from Alpaca into PostgreSQL. |
 | Audit | Check saved raw prices for missing market sessions and invalid records. |
 | Forecast Lab | Audits frozen prospective scans against matured future outcomes, evaluates a time-safe conditional model, and withholds model picks until research gates pass. Initial status may be insufficient evidence. |
-| Portfolio | Planned; no brokerage execution or live holdings tracking. |
+| Visual growth planner (`/`) | Enter a budget, compare historical-pattern growth estimates, see a visual allocation, and optionally explore small, diversified experimental stock positions. |
+| My Holdings (`/portfolio`) | Record your actual purchases, sales, fees, and split adjustments; refresh last completed daily prices and review risk rules. Never places trades. |
 
 ### Important market-data distinction
 
