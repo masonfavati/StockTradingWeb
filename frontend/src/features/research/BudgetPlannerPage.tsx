@@ -6,6 +6,7 @@ import {
   type InvestmentHorizon,
   type PlanStyle,
 } from './researchApi'
+import { explainRetainedCash } from './allocationExplanation'
 
 const qualityLabels: Record<string, string> = {
   unverified_share_type: 'Not enough evidence of ordinary shares',
@@ -360,6 +361,14 @@ export default function BudgetPlannerPage() {
             </article>
           ))}
         </div>
+        <div className="mt-5 rounded-xl border border-slate-700 bg-slate-950 p-4">
+          <h3 className="font-semibold">Why is this amount still cash?</h3>
+          <p className="mt-2 text-sm text-slate-300">{dollars(plan.unallocated_cash_usd)} is retained rather than assigned to investments in this illustrative plan.</p>
+          <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-slate-300">
+            {explainRetainedCash(plan).map(message => <li key={message}>{message}</li>)}
+          </ul>
+          <Link className="mt-3 inline-block text-sm text-emerald-400 underline" to="/decisions">Inspect the historical candidate evidence in the Decision Desk</Link>
+        </div>
         <dl className="mt-5 grid grid-cols-2 gap-4 border-t border-slate-700 pt-4 text-sm">
           <div><dt className="text-slate-400">Example invested amount</dt>
             <dd className="mt-1 text-xl font-bold">{dollars(plan.total_invested_example_usd)}</dd></div>
@@ -387,8 +396,8 @@ export default function BudgetPlannerPage() {
         <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-slate-400">
           {plan.warnings.map((warning) => <li key={warning}>{warning}</li>)}
         </ul>
-        <Link className="mt-4 inline-block text-emerald-400 hover:underline" to="/scanner">
-          Review the underlying research shortlist
+        <Link className="mt-4 inline-block text-emerald-400 hover:underline" to="/decisions">
+          Explain every shortlisted candidate and its research evidence
         </Link>
       </div>
     </div>}

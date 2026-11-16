@@ -209,3 +209,38 @@ export async function getPredictionValidation(): Promise<PredictionValidation> {
   if (!response.ok) throw new Error('The audited prospective prediction report is unavailable.')
   return (await response.json()) as PredictionValidation
 }
+
+export interface DecisionCandidate {
+  rank: number
+  symbol: string
+  name: string
+  quality_passed: boolean
+  quality_reason: string | null
+  metrics: Record<'adjusted_close' | 'return_20d_pct' | 'return_60d_pct' |
+    'annualized_volatility_pct' | 'drawdown_60d_pct' | 'approx_daily_dollar_volume' |
+    'research_score', number | null>
+  sec_filer: { status: string; cik: string | null; name: string | null; exchange: string | null }
+  sec_industry: { status: string; code: string | null; description: string | null }
+}
+
+export interface DecisionDeskResponse {
+  version: string
+  source_kind: 'website_scan' | 'frozen_checkpoint' | null
+  signal_session: string | null
+  recorded_at_utc: string | null
+  source_recent: boolean
+  source_age_hours: number | null
+  considered_count: number
+  displayed_count: number
+  quality_passed_count: number
+  quality_thresholds: QualityReview['thresholds']
+  prediction_status: string
+  candidates: DecisionCandidate[]
+  caveats: string[]
+}
+
+export async function getDecisionDesk(): Promise<DecisionDeskResponse> {
+  const response = await fetch('/api/research/decision-desk')
+  if (!response.ok) throw new Error('Research evidence could not be verified.')
+  return await response.json() as DecisionDeskResponse
+}
