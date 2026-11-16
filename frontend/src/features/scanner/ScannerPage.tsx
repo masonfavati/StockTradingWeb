@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getScannerStatus, startScanner, type ScannerStatus } from './scannerApi'
+import { Link } from 'react-router'
+import { historyLink } from '../history/historyApi'
 
 function signedPercent(value: number): string {
   return `${value > 0 ? '+' : ''}${value.toFixed(1)}%`
@@ -122,6 +124,7 @@ export default function ScannerPage() {
               <p className="text-xl font-bold">{formatMoney(candidate.adjusted_close)}</p>
             </div>
           </div>
+          <Link to={historyLink(candidate.symbol, candidate.last_session)} className="mt-3 inline-block text-sm text-emerald-400 underline">View historical price chart</Link>
           <dl className="mt-4 grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
             <div><dt className="text-slate-400">Past ~month</dt>
               <dd className="mt-1 font-semibold">{signedPercent(candidate.return_20d_pct)}</dd></div>

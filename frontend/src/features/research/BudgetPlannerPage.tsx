@@ -8,6 +8,7 @@ import {
 } from './researchApi'
 import { explainRetainedCash } from './allocationExplanation'
 import { readPlannerQuery } from './scenarioComparison'
+import { historyLink } from '../history/historyApi'
 
 const qualityLabels: Record<string, string> = {
   unverified_share_type: 'Not enough evidence of ordinary shares',
@@ -358,6 +359,7 @@ export default function BudgetPlannerPage() {
                   <p className="text-xs text-slate-400">{item.percent_of_budget}% of budget</p>
                 </div>
               </div>
+              {item.symbol && <Link to={historyLink(item.symbol, plan.source_session)} className="mt-2 inline-block text-sm text-emerald-400 underline">View independent price history</Link>}
               {item.indicative_fractional_shares !== null && <p className="mt-2 text-xs text-amber-200">
                 Approximately {item.indicative_fractional_shares} fractional shares using an old adjusted close
                 of {dollars(item.historical_price_usd ?? '0')}; not a current executable quote.

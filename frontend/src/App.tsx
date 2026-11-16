@@ -7,12 +7,14 @@ import ResearchOverview from './features/research/ResearchOverview'
 import PredictionLabPage from './features/research/PredictionLabPage'
 import DecisionDeskPage from './features/research/DecisionDeskPage'
 import ScenarioComparePage from './features/research/ScenarioComparePage'
+import StockHistoryPage from './features/history/StockHistoryPage'
 
 const navigation = [
   { path: '/', label: 'Dashboard' },
   { path: '/watchlist', label: "Stocks I'm Following" },
   { path: '/scanner', label: 'Find Opportunities' },
   { path: '/decisions', label: 'Research Decision Desk' },
+  { path: '/history', label: 'Stock History Charts' },
   { path: '/planner', label: 'Investment Planner' },
   { path: '/compare', label: 'Compare Budgets' },
   { path: '/portfolio', label: 'Portfolio' },
@@ -88,6 +90,7 @@ export default function App() {
           <Route path="/planner" element={<BudgetPlannerPage />} />
           <Route path="/compare" element={<ScenarioComparePage />} />
           <Route path="/decisions" element={<DecisionDeskPage />} />
+          <Route path="/history" element={<StockHistoryPage />} />
           <Route path="/portfolio" element={<PlaceholderPage title="Portfolio"
             description="Track positions, transactions, gains, and portfolio risk." />} />
           <Route path="/forecasts" element={<PredictionLabPage />} />

@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from app.api.market import router as market_router
 from app.api.research_dashboard import router as research_router
 from app.api.scanner import router as scanner_router
+from app.api.stock_history import router as stock_history_router
 from app.api.watchlist import router as watchlist_router
 from app.api.watchlist_search import router as watchlist_search_router
 from app.core.config import Settings
@@ -43,6 +44,7 @@ app = FastAPI(
 
 app.include_router(market_router)
 app.include_router(research_router)
+app.include_router(stock_history_router)
 app.include_router(scanner_router)
 app.include_router(watchlist_router)
 app.include_router(watchlist_search_router)
