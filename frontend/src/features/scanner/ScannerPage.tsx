@@ -1,3 +1,4 @@
+import BeginnerHelp from '../learn/BeginnerHelp'
 import { useEffect, useState } from 'react'
 import { getScannerStatus, startScanner, type ScannerStatus } from './scannerApi'
 import { Link } from 'react-router'
@@ -56,20 +57,20 @@ export default function ScannerPage() {
         <p className="text-sm font-semibold text-emerald-400">Explore the US stock market</p>
         <h1 className="mt-2 text-3xl font-bold">Find Opportunities</h1>
         <p className="mt-3 max-w-3xl text-slate-300">
-          Search the active, tradable US stocks in Alpaca's directory—not just the companies
-          you're following. Find candidates whose recent price trends deserve further research.
+          Search thousands of U.S. stocks, not just the ones you follow. The app looks for
+          companies whose earlier prices are worth taking a closer look at.
         </p>
         <p className="mt-3 max-w-3xl text-sm text-amber-200">
-          This is a historical research screen, not a prediction or buy recommendation. A low
-          stock price does not make a gain more likely. We haven't validated a profitable
-          strategy or estimated the probability of a stock increasing yet.
+          A match here is <strong>not a suggestion to buy</strong>. The search uses earlier
+          prices and cannot tell which stock will go up next. A low share price by itself
+          does not make a stock more likely to rise.
         </p>
         <div className="mt-6 flex flex-wrap items-center gap-4">
           <button type="button" onClick={() => { void start() }} disabled={loading || running}
             className="rounded-lg bg-emerald-600 px-5 py-3 font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50">
             {running ? 'Scanning market…' : loading ? 'Starting…' : 'Find Opportunities'}
           </button>
-          <span className="text-sm text-slate-400">Scans use completed-day SIP data, not live quotes.</span>
+          <span className="text-sm text-slate-400">Uses earlier completed trading days, not today’s live buying price.</span>
         </div>
       </div>
 
@@ -104,11 +105,10 @@ export default function ScannerPage() {
 
       {complete && status.candidates.length > 0 && <div className="space-y-4">
         <div>
-          <h2 className="text-2xl font-bold">Research shortlist</h2>
+          <h2 className="text-2xl font-bold">Stocks to look into</h2>
           <p className="mt-2 text-sm text-slate-400">
-            Ordered by recent 60-session performance relative to price fluctuation.
-            This descriptive ranking has NOT been backtested for investment profitability.
-            Stocks outside the screen may perform better.
+            Ranked using how much prices changed over roughly three months and how sharply they moved.
+            A high position on this list does not mean the stock is likely to make you money.
           </p>
         </div>
         {status.candidates.map((candidate, index) => <article key={candidate.symbol}
@@ -117,10 +117,10 @@ export default function ScannerPage() {
             <div>
               <p className="text-xs font-medium text-emerald-400">Research rank {index + 1}</p>
               <h3 className="mt-1 text-xl font-semibold">{candidate.name}</h3>
-              <p className="text-sm text-slate-400">{candidate.symbol} · Data through {candidate.last_session}</p>
+              <p className="text-sm text-slate-400">{candidate.symbol} · Last price date: {candidate.last_session}</p>
             </div>
             <div className="text-right">
-              <p className="text-xs text-slate-400">Adjusted historical close</p>
+              <p className="text-xs text-slate-400">Last adjusted daily price</p>
               <p className="text-xl font-bold">{formatMoney(candidate.adjusted_close)}</p>
             </div>
           </div>
@@ -130,9 +130,9 @@ export default function ScannerPage() {
               <dd className="mt-1 font-semibold">{signedPercent(candidate.return_20d_pct)}</dd></div>
             <div><dt className="text-slate-400">Past ~3 months</dt>
               <dd className="mt-1 font-semibold">{signedPercent(candidate.return_60d_pct)}</dd></div>
-            <div><dt className="text-slate-400">Price fluctuation (annualized)</dt>
+            <div><dt className="text-slate-400">How sharply the price moved (yearly scale)</dt>
               <dd className="mt-1 font-semibold">{candidate.annualized_volatility_pct.toFixed(1)}%</dd></div>
-            <div><dt className="text-slate-400">Below recent high</dt>
+            <div><dt className="text-slate-400">Drop from an earlier high</dt>
               <dd className="mt-1 font-semibold">{Math.abs(candidate.drawdown_60d_pct).toFixed(1)}%</dd></div>
           </dl>
         </article>)}
@@ -140,12 +140,13 @@ export default function ScannerPage() {
       {complete && status.candidates.length === 0 && <p className="text-slate-300">
         No companies passed this preliminary screen. It is reasonable not to trade.
       </p>}
+      <BeginnerHelp words={['stock', 'ticker', 'scan', 'change', 'risk', 'adjusted']} />
       <p className="text-xs leading-relaxed text-slate-500">
-        The research screen excludes unavailable, thinly traded, very low-priced,
-        negative-trend, and extreme-volatility candidates by preset rules. These exclusions
+        This search leaves out stocks with missing data, low trading activity, very low prices,
+        recent price declines, or unusually sharp price swings. These exclusions
         are not proof that excluded stocks are poor investments. Corporate-action-adjusted
         historical prices reflect today's information and must not be reused blindly in
-        point-in-time backtests. No orders are placed.
+        historical tests of a prediction model. No purchases or sales are made.
       </p>
     </section>
   )

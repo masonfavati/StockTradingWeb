@@ -1,3 +1,4 @@
+import BeginnerHelp from '../learn/BeginnerHelp'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { getScannerStatus, type ScannerStatus } from '../scanner/scannerApi'
@@ -35,7 +36,7 @@ export default function ResearchOverview() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold">Research progress</h2>
-          <p className="mt-1 text-sm text-slate-400">Frozen predictions, not simulated success stories.</p>
+          <p className="mt-1 text-sm text-slate-400">We keep old research predictions so we can check whether they actually worked.</p>
         </div>
         <Link className="rounded-lg border border-emerald-600 px-4 py-2 text-sm text-emerald-300 hover:bg-emerald-900/30"
           to="/planner">Plan an investment budget</Link>
@@ -44,7 +45,7 @@ export default function ResearchOverview() {
       </div>
       <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
-          <p className="text-sm text-slate-400">Registered forward predictions</p>
+          <p className="text-sm text-slate-400">Earlier predictions saved</p>
           <p className="mt-2 text-3xl font-semibold">{overview?.registered_checkpoints ?? '—'}</p>
           {journalError && <p className="mt-2 text-xs text-amber-300">Journal unavailable; no statistics shown.</p>}
         </div>
@@ -54,17 +55,17 @@ export default function ResearchOverview() {
           <p className="mt-2 text-xs text-slate-400">Ready to evaluate: {counts?.READY ?? '—'}</p>
         </div>
         <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
-          <p className="text-sm text-slate-400">Complete evaluations</p>
+          <p className="text-sm text-slate-400">Predictions checked against later prices</p>
           <p className="mt-2 text-3xl font-semibold">{counts?.COMPLETE ?? '—'}</p>
           <p className="mt-2 text-xs text-slate-400">Incomplete: {counts?.INCOMPLETE ?? '—'}</p>
         </div>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
-          <h3 className="text-lg font-semibold">Latest market research shortlist</h3>
+          <h3 className="text-lg font-semibold">Latest stocks found in the market search</h3>
           {scan?.state === 'complete' ? <>
             <p className="mt-2 text-sm text-slate-300">
-              {scan.considered.toLocaleString()} securities checked · {scan.qualified.toLocaleString()} qualified
+              {scan.considered.toLocaleString()} stocks checked · {scan.qualified.toLocaleString()} qualified
             </p>
             <p className="mt-1 text-xs text-slate-400">Completed-price data through {scan.latest_session ?? 'unknown'}</p>
             <ol className="mt-4 space-y-2">
@@ -98,18 +99,19 @@ export default function ResearchOverview() {
           </Link>
         </div>
         <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
-          <h3 className="text-lg font-semibold">Evidence against SPY</h3>
+          <h3 className="text-lg font-semibold">Did the research do better than SPY?</h3>
           {metrics ? <>
             <p className="mt-3 text-sm">Completed periods: {metrics.complete_windows}</p>
-            <p className="mt-2 text-sm">Mean selected net: {metrics.mean_selected_net_pct}%</p>
-            <p className="mt-1 text-sm">Mean SPY net: {metrics.mean_spy_net_pct}%</p>
-            <p className="mt-1 text-sm">Mean paired excess: {metrics.mean_paired_excess_pp} percentage points</p>
-            <p className="mt-3 text-xs text-amber-200">Overlapping windows are correlated. These averages are not portfolio profits.</p>
+            <p className="mt-2 text-sm">Average change for selected stocks (after illustrative costs): {metrics.mean_selected_net_pct}%</p>
+            <p className="mt-1 text-sm">Average change for SPY (after illustrative costs): {metrics.mean_spy_net_pct}%</p>
+            <p className="mt-1 text-sm">Average difference versus SPY: {metrics.mean_paired_excess_pp} percentage points</p>
+            <p className="mt-3 text-xs text-amber-200">Some test periods overlap, so they are not independent results. These are research averages, not money earned.</p>
           </> : <p className="mt-3 text-sm text-slate-400">
             No completed, verified outcomes yet. Returns and win rates will stay hidden until real evaluations exist.
           </p>}
         </div>
       </div>
+      <BeginnerHelp words={['stock', 'scan', 'spy', 'prediction', 'forecast']} />
     </section>
   )
 }

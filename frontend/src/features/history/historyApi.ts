@@ -9,6 +9,22 @@ export interface BenchmarkBar {
   session_date: string
   normalized_index: number
 }
+export interface HistoricalInsights {
+  highest_price_usd: number | null
+  highest_date: string | null
+  lowest_price_usd: number | null
+  lowest_date: string | null
+  largest_drop_from_previous_high_pct: number | null
+  drop_high_date: string | null
+  drop_low_date: string | null
+  average_change_between_recorded_days_pct: number | null
+  up_days: number
+  down_days: number
+  flat_days: number
+  spy_change_pct: number | null
+  difference_vs_spy_percentage_points: number | null
+}
+
 export interface StockHistoryResponse {
   version: string
   symbol: string
@@ -25,6 +41,7 @@ export interface StockHistoryResponse {
   first_adjusted_close_usd: number | null
   last_adjusted_close_usd: number | null
   period_change_pct: number | null
+  historical_insights?: HistoricalInsights | null
   benchmark_requested: boolean
   benchmark_available: boolean
   benchmark_anchor_session: string | null
@@ -50,11 +67,11 @@ export async function getStockHistory(
   symbol: string, period: HistoryPeriod, compareSpy: boolean,
   signal?: AbortSignal,
 ): Promise<StockHistoryResponse> {
-  if (!validHistoryTicker(symbol)) throw new Error('Enter a valid stock ticker.')
+  if (!validHistoryTicker(symbol)) throw new Error('Enter a stock symbol such as AAPL.')
   const args = new URLSearchParams({ period, compare_spy: String(compareSpy) })
   const response = await fetch(`/api/research/stock-history/${encodeURIComponent(symbol.trim().toUpperCase())}?${args}`, { signal })
   if (!response.ok) {
-    if (response.status === 429) throw new Error('Too many chart requests. Please retry in a minute.')
+    if (response.status === 429) throw new Error('There have been too many price-chart requests. Try again in a minute.')
     throw new Error('Historical prices could not be retrieved. Check Alpaca access or try again.')
   }
   return await response.json() as StockHistoryResponse

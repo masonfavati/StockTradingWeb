@@ -24,7 +24,7 @@ describe('ScannerPage', () => {
 
   it('explains why a low price is not a buy signal', async () => {
     render(<ScannerPage />)
-    expect(screen.getByText(/A low stock price does not make a gain more likely/i)).toBeTruthy()
+    expect(screen.getByText(/A low share price by itself does not make a stock more likely to rise/i)).toBeTruthy()
     await waitFor(() => expect(screen.getByText(/No scan has been run yet/i)).toBeTruthy())
   })
 

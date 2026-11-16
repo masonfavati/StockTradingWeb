@@ -41,9 +41,9 @@ describe('Research Decision Desk', () => {
   it('shows source provenance, quality reasons, and withheld prediction evidence', async () => {
     render(<MemoryRouter><DecisionDeskPage /></MemoryRouter>)
     await waitFor(() => expect(screen.getByText('AAA Corporation Common Stock')).toBeTruthy())
-    expect(screen.getByText(/Signal session: 2026-11-13/)).toBeTruthy()
+    expect(screen.getByText(/Last stock-price date: 2026-11-13/)).toBeTruthy()
     expect(screen.getByText(/Historical price below \$5/)).toBeTruthy()
-    expect(screen.getByText(/insufficient evidence/)).toBeTruthy()
+    expect(screen.getByText(/Not enough real results yet/)).toBeTruthy()
     expect(fetchMock).toHaveBeenCalledWith('/api/research/decision-desk')
   })
 
