@@ -39,6 +39,8 @@ export default function ResearchOverview() {
         </div>
         <Link className="rounded-lg border border-emerald-600 px-4 py-2 text-sm text-emerald-300 hover:bg-emerald-900/30"
           to="/planner">Plan an investment budget</Link>
+        <Link className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-200 hover:bg-slate-800"
+          to="/compare">Compare three styles</Link>
       </div>
       <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">

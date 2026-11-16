@@ -1,5 +1,5 @@
 import { useRef, useState, type FormEvent } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import {
   calculateBudgetPlan,
   type BudgetPlan,
@@ -7,6 +7,7 @@ import {
   type PlanStyle,
 } from './researchApi'
 import { explainRetainedCash } from './allocationExplanation'
+import { readPlannerQuery } from './scenarioComparison'
 
 const qualityLabels: Record<string, string> = {
   unverified_share_type: 'Not enough evidence of ordinary shares',
@@ -26,15 +27,17 @@ function dollars(value: string): string {
 }
 
 export default function BudgetPlannerPage() {
-  const [budget, setBudget] = useState('100.00')
-  const [style, setStyle] = useState<PlanStyle>('balanced')
-  const [horizon, setHorizon] = useState<InvestmentHorizon>('long')
-  const [maxLoss, setMaxLoss] = useState('')
-  const [experimental, setExperimental] = useState(false)
-  const [requireComovement, setRequireComovement] = useState(true)
-  const [requireSecIdentity, setRequireSecIdentity] = useState(false)
-  const [requireSecIndustry, setRequireSecIndustry] = useState(false)
-  const [requirePrediction, setRequirePrediction] = useState(false)
+  const [query] = useSearchParams()
+  const [defaults] = useState(() => readPlannerQuery(query))
+  const [budget, setBudget] = useState(defaults.budget)
+  const [style, setStyle] = useState<PlanStyle>(defaults.style)
+  const [horizon, setHorizon] = useState<InvestmentHorizon>(defaults.horizon)
+  const [maxLoss, setMaxLoss] = useState(defaults.maxLoss)
+  const [experimental, setExperimental] = useState(defaults.experimental)
+  const [requireComovement, setRequireComovement] = useState(defaults.comovement)
+  const [requireSecIdentity, setRequireSecIdentity] = useState(defaults.secIdentity)
+  const [requireSecIndustry, setRequireSecIndustry] = useState(defaults.secIndustry)
+  const [requirePrediction, setRequirePrediction] = useState(defaults.prediction)
   const [plan, setPlan] = useState<BudgetPlan | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -85,6 +88,7 @@ export default function BudgetPlannerPage() {
         Choose a dollar amount, investment time horizon, and optional affordable-loss limit.
         See a transparent example of where those dollars would go, plus downside scenarios.
       </p>
+      <Link to="/compare" className="mt-3 inline-block text-sm text-emerald-400 underline">Compare Cautious, Balanced, and Growth budgets side by side</Link>
       <p className="mt-3 text-sm text-amber-200">
         Educational scenarios only—not an optimized portfolio or personalized buy advice.
         The scanner's future-return accuracy has not been validated.

@@ -33,6 +33,19 @@ describe('BudgetPlannerPage', () => {
   })
   afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks() })
 
+  it('prefills a compared style from its safe link without running a calculation', () => {
+    render(<MemoryRouter initialEntries={[
+      '/planner?budget=250.50&style=growth&horizon=medium&loss=40.00&experimental=1&sec=1&industry=1&prediction=1&history=0',
+    ]}><BudgetPlannerPage /></MemoryRouter>)
+    expect((screen.getByLabelText('Investment amount in dollars') as HTMLInputElement).value).toBe('250.50')
+    expect((screen.getByLabelText('Illustrative allocation style') as HTMLSelectElement).value).toBe('growth')
+    expect((screen.getByLabelText('When might you need this money?') as HTMLSelectElement).value).toBe('medium')
+    expect((screen.getByLabelText('Maximum affordable loss in dollars') as HTMLInputElement).value).toBe('40.00')
+    expect((screen.getByLabelText('Require prospective prediction evidence') as HTMLInputElement).checked).toBe(true)
+    expect((screen.getByLabelText('Require historical co-movement evidence') as HTMLInputElement).checked).toBe(false)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('does not fetch or plan until the person asks', () => {
     render(<MemoryRouter><BudgetPlannerPage /></MemoryRouter>)
     expect(fetchMock).not.toHaveBeenCalled()

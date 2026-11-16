@@ -89,6 +89,7 @@ export default function DecisionDeskPage() {
       </p>
       <div className="mt-5 flex flex-wrap gap-3">
         <Link to="/planner" className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600">Open Investment Planner</Link>
+        <Link to="/compare" className="rounded-lg border border-emerald-600 px-4 py-2 text-sm text-emerald-300 hover:bg-slate-800">Compare budget styles</Link>
         <Link to="/forecasts" className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-200 hover:bg-slate-800">Review prediction validation</Link>
         <button type="button" onClick={() => { setLoading(true); setRefreshToken(value => value + 1) }}
           className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-200 hover:bg-slate-800">Refresh saved evidence</button>
