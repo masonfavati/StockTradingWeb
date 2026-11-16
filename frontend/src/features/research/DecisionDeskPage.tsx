@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { getDecisionDesk, type DecisionCandidate, type DecisionDeskResponse } from './researchApi'
+import { historyLink } from '../history/historyApi'
 
 const reasons: Record<string, string> = {
   unverified_share_type: 'Security name does not support an ordinary-share classification',
@@ -18,7 +19,7 @@ function displayNumber(value: number | null, suffix = '', fractionDigits = 1) {
   return value === null ? 'Unavailable' : `${value.toLocaleString('en-US', { maximumFractionDigits: fractionDigits })}${suffix}`
 }
 
-function CandidateDetails({ candidate }: { candidate: DecisionCandidate }) {
+function CandidateDetails({ candidate, signal }: { candidate: DecisionCandidate; signal: string | null }) {
   const m = candidate.metrics
   return <article className="rounded-xl border border-slate-700 bg-slate-950 p-5" aria-label={`Research candidate ${candidate.symbol}`}>
     <div className="flex flex-wrap items-start justify-between gap-4">
@@ -30,6 +31,7 @@ function CandidateDetails({ candidate }: { candidate: DecisionCandidate }) {
         {candidate.quality_passed ? 'Historical quality screen passed' : 'Historical quality screen excluded'}
       </p>
     </div>
+    <Link to={historyLink(candidate.symbol, signal)} className="mt-3 inline-block text-sm text-emerald-400 underline">View historical price chart</Link>
     {candidate.quality_reason && <p className="mt-3 text-sm text-amber-200">
       Why excluded: {reasons[candidate.quality_reason] ?? candidate.quality_reason.replace(/_/g, ' ')}.
     </p>}
@@ -133,7 +135,7 @@ export default function DecisionDeskPage() {
         </div>
         {!result.candidates.length && <p className="mt-4 text-sm text-amber-200">No recorded candidates to inspect. Run a market scan or wait for the next frozen checkpoint.</p>}
         {result.candidates.length > 0 && filtered.length === 0 && <p className="mt-4 text-sm text-slate-400">No candidates match this filter.</p>}
-        <div className="mt-5 space-y-4">{filtered.map(item => <CandidateDetails key={`${item.rank}-${item.symbol}`} candidate={item}/>)}</div>
+        <div className="mt-5 space-y-4">{filtered.map(item => <CandidateDetails key={`${item.rank}-${item.symbol}`} candidate={item} signal={result.signal_session}/>)}</div>
       </div>
       <div className="rounded-xl border border-slate-800 p-5">
         <h2 className="font-semibold">What this evidence does not establish</h2>
